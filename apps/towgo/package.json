@@ -1,0 +1,43 @@
+{
+  "name": "towgo",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "go": "expo start --go",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "expo lint"
+  },
+  "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@react-native-community/netinfo": "12.0.1",
+    "@react-navigation/bottom-tabs": "^7.18.8",
+    "@react-navigation/native": "^7.3.8",
+    "@tanstack/react-query": "^5.101.2",
+    "@towing/theme": "workspace:*",
+    "@towing/ui": "workspace:*",
+    "expo": "~57.0.6",
+    "expo-dev-client": "~57.0.6",
+    "expo-font": "~57.0.1",
+    "expo-splash-screen": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^1.24.0",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-svg": "15.15.4",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@towing/config": "workspace:*",
+    "@types/react": "~19.2.2",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "typescript": "~6.0.3"
+  }
+}

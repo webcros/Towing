@@ -1,0 +1,13 @@
+{
+  "name": "@towing/config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    "./eslint": "./eslint-preset.js"
+  },
+  "dependencies": {
+    "eslint-config-expo": "~10.0.0",
+    "eslint-plugin-react-hooks": "^6.0.0"
+  }
+}

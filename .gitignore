@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Turborepo
+.turbo/
+
+# Scratch / temp
+tmp/
+
+# Expo
+.expo/
+dist/
+web-build/
+*.orig.*
+
+# Native
+apps/*/android/
+apps/*/ios/
+
+# Env
+.env
+.env.local
+*.local
+
+# Build output
+**/tsconfig.tsbuildinfo
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS / editors
+.DS_Store
+*.pem

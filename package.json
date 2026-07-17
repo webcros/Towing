@@ -1,0 +1,22 @@
+{
+  "name": "towing",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "towgo": "pnpm --filter towgo start",
+    "towgo:go": "pnpm --filter towgo go",
+    "towgo:android": "pnpm --filter towgo android",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.5.5",
+    "typescript": "~6.0.3"
+  }
+}
