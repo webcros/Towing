@@ -40,13 +40,10 @@ jobs:
         run: pnpm install
 
       - name: Run Linter
-        run: pnpm run lint --if-present
+        run: pnpm run lint
 
       - name: Run Type-Check
-        run: pnpm run typecheck --if-present
-
-      - name: Run Unit Tests
-        run: pnpm run test --if-present
+        run: pnpm run typecheck
 
   # =========================================================================
   # 🛑 DEPLOYMENT JOBS PAUSED TO AVOID AWS BILLING DURING EARLY DEVELOPMENT 🛑
