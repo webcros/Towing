@@ -11,4 +11,6 @@ export const env = {
   /** Dev-only: force a query into a state to preview §10.9 UI. */
   mockDriversState: (process.env.EXPO_PUBLIC_MOCK_DRIVERS_STATE ?? '') as MockState,
   mockBookingsState: (process.env.EXPO_PUBLIC_MOCK_BOOKINGS_STATE ?? '') as MockState,
+  /** Dev-only: force the search outcome ('' | 'no_drivers'). */
+  mockSearchState: (process.env.EXPO_PUBLIC_MOCK_SEARCH_STATE ?? '') as '' | 'no_drivers',
 };

@@ -10,21 +10,36 @@ import type { MapPreviewProps } from './types';
  * (MapPreview.maps) touches nothing that consumes <MapPreview />.
  */
 export function MapPreviewPlaceholder({
-  height = 181,
+  height,
   showRecenter = true,
   onRecenter,
   recenterDisabled = false,
   recenterIcon: RecenterIcon,
+  showUserLocation = false,
+  userLocationLabel = 'You are here',
+  userMarkerTop,
   label = 'MAP',
   style,
 }: MapPreviewProps) {
   const theme = useTheme();
 
+  const markerPositionStyle =
+    userMarkerTop === undefined
+      ? { alignItems: 'center' as const }
+      : ({
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: userMarkerTop,
+          alignItems: 'center',
+        } as const);
+
   return (
     <View
       style={[
         {
-          height,
+          // No height → parent/style controls sizing (e.g. absolute fill).
+          height: height ?? undefined,
           backgroundColor: theme.colors.mapBg,
           overflow: 'hidden',
           alignItems: 'center',
@@ -47,14 +62,59 @@ export function MapPreviewPlaceholder({
         style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 1, backgroundColor: theme.colors.border }}
       />
 
-      <Text
-        variant="display"
-        weight="bold"
-        color="tertiary"
-        style={{ fontSize: 45, letterSpacing: 4, opacity: 0.32 }}
-      >
-        {label}
-      </Text>
+      {showUserLocation ? (
+        <View pointerEvents="none" style={markerPositionStyle}>
+          {/* Label pill */}
+          <View
+            style={{
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.radii.pill,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              marginBottom: 10,
+              ...theme.shadows.fab,
+            }}
+          >
+            <Text
+              weight="medium"
+              style={{ fontSize: 12, lineHeight: 16, color: theme.colors.info }}
+            >
+              {userLocationLabel}
+            </Text>
+          </View>
+          {/* Accuracy ring + dot */}
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: theme.colors.infoSoftBg,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: theme.colors.info,
+                borderWidth: 3,
+                borderColor: theme.colors.card,
+              }}
+            />
+          </View>
+        </View>
+      ) : (
+        <Text
+          variant="display"
+          weight="bold"
+          color="tertiary"
+          style={{ fontSize: 45, letterSpacing: 4, opacity: 0.32 }}
+        >
+          {label}
+        </Text>
+      )}
 
       {showRecenter ? (
         <Pressable

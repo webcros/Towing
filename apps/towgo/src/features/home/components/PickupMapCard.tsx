@@ -1,26 +1,40 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useTheme } from '@towing/theme';
-import { Card, Text, Button } from '@towing/ui';
-import { MapPin, LocateFixed } from '@/icons';
+import { Card, Text, Button, MapPreview } from '@towing/ui';
+import { MapPin, LocateFixed, Navigation } from '@/icons';
 import { useLocationStore } from '@/features/location/locationStore';
 
-export type PickupLocationCardProps = {
+export type PickupMapCardProps = {
   onBook: () => void;
   onUseCurrentLocation: () => void;
   locating?: boolean;
+  isOnline?: boolean;
 };
 
-export function PickupLocationCard({
+/**
+ * Home pickup card (redesigned): live map with the user's current position on
+ * top, pickup address + locate below, then the Book a Tow CTA — one card.
+ */
+export function PickupMapCard({
   onBook,
   onUseCurrentLocation,
   locating = false,
-}: PickupLocationCardProps) {
+  isOnline = true,
+}: PickupMapCardProps) {
   const theme = useTheme();
   const pickup = useLocationStore((s) => s.pickup);
 
   return (
-    <Card radius="cardLg" padding={0}>
+    <Card radius="cardLg" padding={0} style={{ overflow: 'hidden' }}>
+      <MapPreview
+        height={206}
+        showUserLocation
+        recenterIcon={Navigation}
+        onRecenter={onUseCurrentLocation}
+        recenterDisabled={!isOnline || locating}
+      />
+
       <View style={{ paddingVertical: 18, paddingHorizontal: 16, gap: 18 }}>
         <View
           style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}

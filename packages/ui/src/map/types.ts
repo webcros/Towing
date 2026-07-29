@@ -7,6 +7,11 @@ export type MapPreviewProps = {
   onRecenter?: () => void;
   recenterDisabled?: boolean;
   recenterIcon?: IconComponent;
+  /** Render the user's position (blue dot + accuracy ring + label pill). */
+  showUserLocation?: boolean;
+  userLocationLabel?: string;
+  /** Vertical position of the user marker; omit to center it in the map. */
+  userMarkerTop?: number | `${number}%`;
   /** Watermark shown by the placeholder implementation. */
   label?: string;
   style?: StyleProp<ViewStyle>;

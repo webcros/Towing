@@ -1,58 +1,13 @@
 import React from 'react';
 import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
-import { Card, Text, Divider, Skeleton, StatusBadge, type StatusTone } from '@towing/ui';
-import { MapPin, Star, Calendar, Clock } from '@/icons';
+import { Card, Text, Divider, Skeleton, StatusBadge } from '@towing/ui';
+import { Star } from '@/icons';
 import { formatINR } from '@/utils/format';
-import type { Booking, BookingStatus, RouteTone } from '../types';
-
-const STATUS_META: Record<BookingStatus, { label: string; tone: StatusTone }> = {
-  completed: { label: 'Completed', tone: 'success' },
-  cancelled: { label: 'Cancelled', tone: 'error' },
-  in_progress: { label: 'In progress', tone: 'info' },
-  scheduled: { label: 'Scheduled', tone: 'info' },
-};
-
-function RouteTimeline({ tone }: { tone: RouteTone }) {
-  const theme = useTheme();
-  const dotColor = tone === 'success' ? theme.colors.success : theme.colors.info;
-  return (
-    <View style={{ width: 18, alignItems: 'center', paddingTop: 6, alignSelf: 'stretch' }}>
-      <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: dotColor }} />
-      <View
-        style={{
-          flex: 1,
-          minHeight: 22,
-          borderLeftWidth: 1,
-          borderStyle: 'dashed',
-          borderColor: theme.colors.borderStrong,
-          marginVertical: 4,
-        }}
-      />
-      <MapPin size={16} color={theme.colors.error} fill={theme.colors.error} />
-    </View>
-  );
-}
-
-function DateTime({ date, time }: { date: string; time: string }) {
-  const theme = useTheme();
-  return (
-    <View style={{ gap: 3, alignItems: 'flex-start' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Calendar size={12} color={theme.colors.textSecondary} strokeWidth={2} />
-        <Text color="secondary" style={{ fontSize: 11.5, lineHeight: 15 }}>
-          {date}
-        </Text>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Clock size={12} color={theme.colors.textSecondary} strokeWidth={2} />
-        <Text color="secondary" style={{ fontSize: 11.5, lineHeight: 15 }}>
-          {time}
-        </Text>
-      </View>
-    </View>
-  );
-}
+import { STATUS_META } from '../statusMeta';
+import { RouteTimeline } from './RouteTimeline';
+import { DateTime } from './DateTime';
+import type { Booking } from '../types';
 
 export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => void }) {
   const theme = useTheme();
@@ -60,7 +15,13 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
 
   return (
     <View style={{ position: 'relative' }}>
-      <Card radius="sheet" padding={18} onPress={onPress} style={{ gap: 18 }}>
+      <Card
+        radius="sheet"
+        padding={18}
+        onPress={onPress}
+        accessibilityLabel={`${booking.originLabel} to ${booking.destinationLabel}, ${status.label}, ${formatINR(booking.fare)}`}
+        style={{ gap: 18 }}
+      >
         {/* Route timeline + trip info */}
         <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
           <RouteTimeline tone={booking.routeTone} />

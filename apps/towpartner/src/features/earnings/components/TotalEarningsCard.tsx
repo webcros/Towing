@@ -1,0 +1,64 @@
+import React from 'react';
+import { Image, View } from 'react-native';
+import { Text } from '@towing/ui';
+import { TrendingUp, TrendingDown } from '@/icons';
+import { HeroCard } from '@/components/HeroCard';
+import { driverColors } from '@/theme/driverColors';
+import { formatINR, formatSignedPercent } from '@/utils/format';
+import type { EarningsSummary } from '../types';
+
+const wallet = require('@/assets/illustrations/wallet.png');
+
+/**
+ * Earnings hero: big total + week-over-week delta + wallet illustration.
+ * Two-column flow layout so the copy and image can never collide.
+ */
+export function TotalEarningsCard({ summary }: { summary: EarningsSummary }) {
+  const positive = summary.deltaPercent >= 0;
+  const deltaColor = positive ? driverColors.online : '#DC2626';
+  const DeltaIcon = positive ? TrendingUp : TrendingDown;
+
+  return (
+    <HeroCard style={{ padding: 20 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, lineHeight: 22, color: '#4B5563' }}>Total Earnings</Text>
+          <Text
+            weight="bold"
+            tabular
+            numberOfLines={1}
+            style={{ fontSize: 34, lineHeight: 42, marginTop: 2 }}
+          >
+            {formatINR(summary.total)}
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              columnGap: 6,
+              rowGap: 2,
+              marginTop: 6,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <DeltaIcon size={14} color={deltaColor} strokeWidth={2.4} />
+              <Text weight="medium" style={{ fontSize: 13, lineHeight: 18, color: deltaColor }}>
+                {formatSignedPercent(summary.deltaPercent)}
+              </Text>
+            </View>
+            <Text color="secondary" style={{ fontSize: 13, lineHeight: 18, flexShrink: 1 }}>
+              {positive ? 'more than last week' : 'less than last week'}
+            </Text>
+          </View>
+        </View>
+
+        <Image
+          source={wallet}
+          resizeMode="contain"
+          style={{ width: 88, aspectRatio: 240 / 245 }}
+        />
+      </View>
+    </HeroCard>
+  );
+}

@@ -10,6 +10,9 @@
     "towgo": "pnpm --filter towgo start",
     "towgo:go": "pnpm --filter towgo go",
     "towgo:android": "pnpm --filter towgo android",
+    "driver": "pnpm --filter towpartner start",
+    "driver:go": "pnpm --filter towpartner go",
+    "driver:android": "pnpm --filter towpartner android",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""

@@ -60,7 +60,9 @@ export function Text({
   };
 
   return (
-    <RNText style={[textStyle, style]} {...rest}>
+    // Cap OS font scaling so accessibility sizes enlarge text without
+    // breaking tight layouts (overridable per-instance via rest props).
+    <RNText maxFontSizeMultiplier={1.2} style={[textStyle, style]} {...rest}>
       {children}
     </RNText>
   );
