@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { Menu, ArrowLeft, Bell } from '@/icons';
 import { driverColors } from '@/theme/driverColors';
+import { Pressable } from '@/motion';
 
 export type DriverHeaderProps = {
   title: string;
@@ -53,7 +54,8 @@ export function DriverHeader({
         hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel={leading === 'back' ? 'Go back' : 'Open menu'}
-        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingTop: 4 })}
+        pressScale={theme.motion.pressScale.chip}
+        style={{ paddingTop: 4 }}
       >
         <LeadingIcon size={24} color={theme.colors.textPrimary} strokeWidth={2} />
       </Pressable>
@@ -83,10 +85,11 @@ export function DriverHeader({
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Notifications"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingTop: 4 })}
+          pressScale={theme.motion.pressScale.chip}
+          style={{ paddingTop: 4 }}
         >
           <View>
-            <Bell size={22} color={theme.colors.textPrimary} strokeWidth={2} />
+            <Bell size={24} color={theme.colors.textPrimary} strokeWidth={2} />
             {bellBadge ? (
               <View
                 style={{

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { ChevronDown } from '@/icons';
+import { Pressable } from '@/motion';
 
 // Figma 31:138 — white bordered row, label left, brand value + chevron right.
 export function BookingOptionRow({
@@ -23,7 +24,7 @@ export function BookingOptionRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value}`}
-      style={({ pressed }) => ({
+      style={() => ({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -31,20 +32,19 @@ export function BookingOptionRow({
         borderRadius: 11,
         borderWidth: 1,
         borderColor: theme.colors.border,
-        paddingHorizontal: 15.5,
+        paddingHorizontal: 17,
         paddingVertical: 12,
-        opacity: pressed ? 0.8 : 1,
         ...theme.shadows.card,
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, flexShrink: 1 }}>
         <Icon size={15} color={theme.colors.textPrimary} strokeWidth={2} />
-        <Text color="secondary" numberOfLines={1} style={{ fontSize: 11.3, lineHeight: 17, letterSpacing: 0.28 }}>
+        <Text color="secondary" numberOfLines={1} style={{ fontSize: 12, lineHeight: 18, letterSpacing: 0.3 }}>
           {label}
         </Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Text weight="medium" style={{ fontSize: 11.8, lineHeight: 17.7, color: theme.colors.brand }}>
+        <Text weight="medium" style={{ fontSize: 13, lineHeight: 19, color: theme.colors.brand }}>
           {value}
         </Text>
         <ChevronDown size={12} color={theme.colors.brand} strokeWidth={2.4} />

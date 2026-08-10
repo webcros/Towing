@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Button, Text } from '@towing/ui';
 import { Phone, Mail, MessageCircle, Clock } from '@/icons';
@@ -8,12 +8,28 @@ import { SettingsList } from '@/components/SettingsList';
 import { SettingsRow } from '@/components/SettingsRow';
 import { TextField } from '@/components/TextField';
 
+const SUPPORT_PHONE = '+911800123456';
+const SUPPORT_PHONE_DISPLAY = '+91 1800 123 456';
+const SUPPORT_EMAIL = 'support@towgo.in';
+const SUPPORT_WHATSAPP = '911800123456';
+
 export function ContactUsScreen() {
   const theme = useTheme();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  // No message-send backend exists yet — only the tel/mailto/WhatsApp rows below are real.
   const notReady = useCallback(() => {}, []);
   const canSend = subject.trim().length > 0 && message.trim().length > 0;
+
+  const callUs = useCallback(() => {
+    Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() => {});
+  }, []);
+  const emailUs = useCallback(() => {
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {});
+  }, []);
+  const whatsAppUs = useCallback(() => {
+    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}`).catch(() => {});
+  }, []);
 
   return (
     <SubScreen title="Contact Us" gap={18}>
@@ -22,17 +38,17 @@ export function ContactUsScreen() {
           icon={Phone}
           iconColor={theme.colors.success}
           title="Call us"
-          subtitle="+91 1800 123 4567"
+          subtitle={SUPPORT_PHONE_DISPLAY}
           trailing="chevron"
-          onPress={notReady}
+          onPress={callUs}
         />
         <SettingsRow
           icon={Mail}
           iconColor={theme.colors.info}
           title="Email us"
-          subtitle="support@moveyo.in"
+          subtitle={SUPPORT_EMAIL}
           trailing="chevron"
-          onPress={notReady}
+          onPress={emailUs}
         />
         <SettingsRow
           icon={MessageCircle}
@@ -40,7 +56,7 @@ export function ContactUsScreen() {
           title="WhatsApp"
           subtitle="Chat with our support team"
           trailing="chevron"
-          onPress={notReady}
+          onPress={whatsAppUs}
         />
       </SettingsList>
 

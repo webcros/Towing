@@ -10,7 +10,8 @@ import type { EarningsPoint } from '../types';
 /** Indian-grouped integer without the currency symbol, e.g. 2680 → "2,680". */
 const groupInt = (value: number) => formatINR(value).replace('₹', '');
 
-const HEIGHT = 190;
+// Figma 78:784 plots into a 203-tall SVG area inside a 235-tall card.
+const HEIGHT = 203;
 const PAD = { left: 8, right: 12, top: 24, bottom: 24 };
 const GRID_FRACTIONS = [0, 1 / 3, 2 / 3, 1];
 
@@ -59,7 +60,7 @@ export function EarningsTrendChart({ points }: { points: EarningsPoint[] }) {
                     stroke={theme.colors.border}
                     strokeWidth={1}
                   />
-                  <SvgText x={PAD.left} y={y - 4} fontSize={9} fill={theme.colors.textTertiary}>
+                  <SvgText x={PAD.left} y={y - 4} fontSize={10} fill={theme.colors.textTertiary}>
                     {gridLabel(value)}
                   </SvgText>
                 </React.Fragment>
@@ -87,7 +88,7 @@ export function EarningsTrendChart({ points }: { points: EarningsPoint[] }) {
                     <SvgText
                       x={xAt(i)}
                       y={yAt(p.value) - 11}
-                      fontSize={11}
+                      fontSize={10}
                       fontWeight="600"
                       fill={driverColors.accent}
                       textAnchor="end"

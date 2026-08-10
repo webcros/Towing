@@ -5,7 +5,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '@towing/theme';
 import { Screen, OfflineBanner } from '@towing/ui';
 import { AppHeader } from '@/components/AppHeader';
+import { useCollapsingHeader } from '@/motion';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useTabBarSpace } from '@/navigation/TabBar';
 import { useLocationStore } from '@/features/location/locationStore';
 import { HomeHero } from '@/features/home/components/HomeHero';
 import { PickupMapCard } from '@/features/home/components/PickupMapCard';
@@ -16,6 +18,8 @@ import type { RootStackParamList } from '@/navigation/types';
 
 export function HomeScreen() {
   const theme = useTheme();
+  const tabBarSpace = useTabBarSpace();
+  const { scrollY, screenProps } = useCollapsingHeader();
   const online = useOnlineStatus();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -37,10 +41,10 @@ export function HomeScreen() {
       scroll
       edges={['top']}
       banner={<OfflineBanner visible={!online} />}
-      contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+      header={<AppHeader showMenu={false} scrollY={scrollY} />}
+      contentContainerStyle={{ paddingBottom: tabBarSpace }}
+      {...screenProps}
     >
-      <AppHeader />
-
       <HomeHero />
 
       <View style={{ paddingHorizontal: theme.spacing.xl, gap: theme.spacing.xl }}>
@@ -48,6 +52,7 @@ export function HomeScreen() {
           onBook={openBooking}
           onUseCurrentLocation={useCurrentLocation}
           locating={status === 'locating'}
+          locationDenied={status === 'denied'}
           isOnline={online}
         />
         <QuickActionsGrid onAction={onQuickAction} />

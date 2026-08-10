@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { History, Heart } from '@/icons';
 import type { RecentLocation } from '../data/recentLocations.data';
+import { Pressable } from '@/motion';
 
 export function RecentLocationRow({
   location,
@@ -23,12 +24,11 @@ export function RecentLocationRow({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${location.name}, ${location.address}`}
-        style={({ pressed }) => ({
+        style={() => ({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 14,
           paddingVertical: 14,
-          opacity: pressed ? 0.6 : 1,
         })}
       >
         <History size={20} color={theme.colors.textTertiary} strokeWidth={1.8} />

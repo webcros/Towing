@@ -6,13 +6,17 @@ import { useTheme } from '@towing/theme';
 import { Screen, Text, OfflineBanner, EmptyState, ErrorState } from '@towing/ui';
 import { ClipboardList } from '@/icons';
 import { AppHeader } from '@/components/AppHeader';
+import { useCollapsingHeader } from '@/motion';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useTabBarSpace } from '@/navigation/TabBar';
 import { useBookings } from '@/features/bookings/api/bookings.queries';
 import { BookingCard, BookingCardSkeleton } from '@/features/bookings/components/BookingCard';
 import type { BookingsStackParamList } from '@/navigation/types';
 
 export function BookingsScreen() {
   const theme = useTheme();
+  const tabBarSpace = useTabBarSpace();
+  const { scrollY, screenProps } = useCollapsingHeader();
   const online = useOnlineStatus();
   const navigation = useNavigation<NativeStackNavigationProp<BookingsStackParamList>>();
   const { data, isPending, isError, refetch } = useBookings();
@@ -25,7 +29,7 @@ export function BookingsScreen() {
   let content: React.ReactNode;
   if (isPending) {
     content = (
-      <View style={{ gap: 16 }}>
+      <View style={{ gap: theme.spacing.xxl }}>
         <BookingCardSkeleton />
         <BookingCardSkeleton />
         <BookingCardSkeleton />
@@ -52,8 +56,10 @@ export function BookingsScreen() {
       </View>
     );
   } else {
+    // 24 clears the status badge (10px overhang) and keeps the gap between cards
+    // larger than the 16 inside them -- equal or tighter reads as one mushy block.
     content = (
-      <View style={{ gap: 16 }}>
+      <View style={{ gap: theme.spacing.xxl }}>
         {data.map((booking) => (
           <BookingCard
             key={booking.id}
@@ -70,20 +76,22 @@ export function BookingsScreen() {
       scroll
       edges={['top']}
       banner={<OfflineBanner visible={!online} />}
-      contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+      header={<AppHeader scrollY={scrollY} title="My Bookings" />}
+      contentContainerStyle={{ paddingBottom: tabBarSpace }}
+      {...screenProps}
     >
-      <AppHeader />
-
-      <View style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 }}>
-        <Text weight="semibold" style={{ fontSize: 28, lineHeight: 32, letterSpacing: -0.6 }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
+        <Text variant="h1" weight="semibold">
           My Bookings
         </Text>
-        <Text color="secondary" style={{ fontSize: 15, lineHeight: 22, marginTop: 4 }}>
+        <Text variant="body" color="secondary" style={{ marginTop: 2 }}>
           Your past booking history
         </Text>
       </View>
 
-      <View style={{ paddingHorizontal: 16 }}>{content}</View>
+      <View style={{ paddingHorizontal: 20 }}>
+        {content}
+      </View>
     </Screen>
   );
 }

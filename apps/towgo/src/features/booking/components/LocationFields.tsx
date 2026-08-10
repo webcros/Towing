@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { ArrowUpDown } from '@/icons';
 import { useBookingStore } from '../store/bookingStore';
+import { Pressable } from '@/motion';
 
 export type LocationField = 'pickup' | 'drop';
 
@@ -119,14 +120,13 @@ export function LocationFields({
         accessibilityRole="button"
         accessibilityLabel="Swap pickup and drop locations"
         hitSlop={6}
-        style={({ pressed }) => ({
+        style={() => ({
           width: 34,
           height: 34,
           borderRadius: 17,
           backgroundColor: theme.colors.surface1,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: pressed ? 0.6 : 1,
         })}
       >
         <ArrowUpDown size={15} color={theme.colors.textSecondary} />

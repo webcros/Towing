@@ -1,15 +1,18 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Card, Text, Button, MapPreview } from '@towing/ui';
 import { MapPin, LocateFixed, Navigation } from '@/icons';
 import { useLocationStore } from '@/features/location/locationStore';
+import { Pressable } from '@/motion';
 
 export type PickupMapCardProps = {
   onBook: () => void;
   onUseCurrentLocation: () => void;
   locating?: boolean;
   isOnline?: boolean;
+  /** Foreground location permission was denied — pickup stays on the fallback address. */
+  locationDenied?: boolean;
 };
 
 /**
@@ -21,6 +24,7 @@ export function PickupMapCard({
   onUseCurrentLocation,
   locating = false,
   isOnline = true,
+  locationDenied = false,
 }: PickupMapCardProps) {
   const theme = useTheme();
   const pickup = useLocationStore((s) => s.pickup);
@@ -40,7 +44,7 @@ export function PickupMapCard({
           style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}
         >
           <View style={{ flex: 1, gap: 7 }}>
-            <Text variant="label" color="tertiary" style={{ fontSize: 10 }}>
+            <Text variant="overline" color="tertiary">
               Pickup Location
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
@@ -48,7 +52,7 @@ export function PickupMapCard({
               <Text
                 weight="semibold"
                 numberOfLines={1}
-                style={{ fontSize: 14.5, lineHeight: 22, flexShrink: 1 }}
+                style={{ fontSize: 16, lineHeight: 22, flexShrink: 1 }}
               >
                 {pickup.label}
               </Text>
@@ -60,7 +64,7 @@ export function PickupMapCard({
             disabled={locating}
             accessibilityRole="button"
             accessibilityLabel="Use current location"
-            style={({ pressed }) => ({
+            style={() => ({
               width: 36,
               height: 36,
               borderRadius: 13,
@@ -68,7 +72,6 @@ export function PickupMapCard({
               borderColor: theme.colors.border,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed ? 0.6 : 1,
             })}
           >
             {locating ? (
@@ -78,6 +81,15 @@ export function PickupMapCard({
             )}
           </Pressable>
         </View>
+
+        {locationDenied ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MapPin size={13} color={theme.colors.error} />
+            <Text color="error" style={{ fontSize: 12, lineHeight: 16, flex: 1 }}>
+              Location access denied — using your last saved pickup instead.
+            </Text>
+          </View>
+        ) : null}
 
         <Button label="Book a Tow" onPress={onBook} fullWidth height={46} />
       </View>

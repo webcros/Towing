@@ -1,10 +1,11 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { ChevronRight } from '@/icons';
 import { IconChip } from './IconChip';
 import { type ChipTone } from '@/theme/driverColors';
+import { Pressable } from '@/motion';
 
 export type MenuRowProps = {
   icon?: IconComponent;
@@ -56,7 +57,7 @@ export function MenuRow({
     >
       {Icon ? (
         tone ? (
-          <IconChip icon={Icon} tone={tone} size={40} />
+          <IconChip icon={Icon} tone={tone} size={40} iconSize={16} />
         ) : (
           <Icon size={20} color={mainColor} strokeWidth={2} />
         )

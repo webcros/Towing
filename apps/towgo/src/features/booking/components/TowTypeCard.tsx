@@ -1,13 +1,15 @@
 import React from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { Info, Check } from '@/icons';
 import { formatINR } from '@/utils/format';
 import type { TowType } from '../types';
+import { Pressable } from '@/motion';
 
-// Figma 31:67 — 131.5×159.4, r14.5; selected = brandTint bg + brand border +
-// brand check badge top-right.
+// Figma 31:67. That frame is a 430 design squashed into a 390 artboard (every
+// number is an exact x0.907 multiple), so the raw values render ~9%25 small.
+// These are the un-squashed intent, snapped to the grid: 145x176, r16.
 export function TowTypeCard({
   towType,
   selected,
@@ -26,46 +28,49 @@ export function TowTypeCard({
       accessibilityRole="button"
       accessibilityState={{ selected, disabled: towType.disabled }}
       accessibilityLabel={`${towType.name}, ${towType.categories}, ${formatINR(towType.price)}`}
-      style={({ pressed }) => ({
-        width: 132,
-        height: 160,
-        borderRadius: 14.5,
-        paddingHorizontal: 13.5,
-        paddingVertical: 12,
+      style={() => ({
+        width: 145,
+        height: 176,
+        borderRadius: 16,
+        paddingHorizontal: 15,
+        paddingVertical: 13,
         backgroundColor: selected ? theme.colors.brandTint : theme.colors.card,
         borderWidth: 1,
         borderColor: selected ? theme.colors.brand : theme.colors.border,
         justifyContent: 'space-between',
-        opacity: towType.disabled ? 0.6 : pressed ? 0.9 : 1,
-        ...theme.shadows.card,
+        // Alpha and elevation are mutually exclusive on one node: on Android the
+        // elevation shadow is drawn outside the view's own alpha, so a faded
+        // card shows its shadow through itself. A disabled card should not read
+        // as raised anyway, so it trades the shadow for the fade.
+        ...(towType.disabled ? { opacity: 0.6 } : theme.shadows.card),
       })}
     >
       <Image
         source={towType.image}
         resizeMode="contain"
-        style={{ width: 104, height: 51, marginTop: 8 }}
+        style={{ width: 115, height: 56, marginTop: 9 }}
       />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Text weight="semibold" numberOfLines={1} style={{ fontSize: 12.7, lineHeight: 19 }}>
+        <Text weight="semibold" numberOfLines={1} style={{ fontSize: 14, lineHeight: 21 }}>
           {towType.name}
         </Text>
-        {!towType.disabled ? <Info size={12.7} color={theme.colors.textTertiary} /> : null}
+        {!towType.disabled ? <Info size={14} color={theme.colors.textTertiary} /> : null}
       </View>
 
-      <Text color="secondary" numberOfLines={1} style={{ fontSize: 10.4, lineHeight: 15.6, marginBottom: 6 }}>
+      <Text color="secondary" numberOfLines={1} style={{ fontSize: 11, lineHeight: 17, marginBottom: 7 }}>
         {towType.categories}
       </Text>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Text weight="semibold" tabular style={{ fontSize: 13.2, lineHeight: 19.7 }}>
+        <Text weight="semibold" tabular style={{ fontSize: 15, lineHeight: 22 }}>
           {formatINR(towType.price)}
         </Text>
         {towType.comparePrice ? (
           <Text
             color="tertiary"
             tabular
-            style={{ fontSize: 10, lineHeight: 15, textDecorationLine: 'line-through' }}
+            style={{ fontSize: 11, lineHeight: 17, textDecorationLine: 'line-through' }}
           >
             {formatINR(towType.comparePrice)}
           </Text>
@@ -76,11 +81,11 @@ export function TowTypeCard({
         <View
           style={{
             position: 'absolute',
-            top: 7,
-            right: 7,
-            width: 20,
-            height: 20,
-            borderRadius: 10,
+            top: 8,
+            right: 8,
+            width: 22,
+            height: 22,
+            borderRadius: 11,
             backgroundColor: theme.colors.brand,
             alignItems: 'center',
             justifyContent: 'center',

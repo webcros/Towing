@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // No "type": "module" in package.json → nodenext emits CJS, which is what
+    // the compiled NestJS backend `require`s at runtime. Types are served from
+    // src (see package.json exports), so no declarations here.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": false,
+    "declaration": false,
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src"]
+}

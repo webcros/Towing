@@ -2,4 +2,15 @@ packages:
   - apps/*
   - packages/*
 allowBuilds:
+  # swc compiles decorators + emitDecoratorMetadata for vitest (esbuild alone
+  # cannot, and Nest DI depends on that metadata); esbuild backs vitest and tsx.
+  '@swc/core': true
+  esbuild: true
+  # Optional native accelerator for bullmq's msgpackr. msgpackr falls back to
+  # pure JS without it (verified: enqueue→process round-trips fine), and every
+  # native build we skip is one less thing to compile in the ECS image.
+  msgpackr-extract: false
+  # Next's image optimizer. Matches `pnpm.onlyBuiltDependencies` in the root
+  # package.json, which already declares the intent.
+  sharp: true
   unrs-resolver: false

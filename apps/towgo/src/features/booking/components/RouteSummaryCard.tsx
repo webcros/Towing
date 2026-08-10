@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { MapPin, Plus } from '@/icons';
 import { useBookingStore } from '../store/bookingStore';
+import { Pressable } from '@/motion';
 
 /** Read-only labeled pickup/drop summary + add-stop. Tap the card to edit. */
 export function RouteSummaryCard({
@@ -22,7 +23,7 @@ export function RouteSummaryCard({
       onPress={onEdit}
       accessibilityRole="button"
       accessibilityLabel="Edit locations"
-      style={({ pressed }) => ({
+      style={() => ({
         backgroundColor: theme.colors.card,
         borderRadius: 18,
         borderWidth: 1,
@@ -31,7 +32,6 @@ export function RouteSummaryCard({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        opacity: pressed ? 0.92 : 1,
         ...theme.shadows.card,
       })}
     >
@@ -59,7 +59,7 @@ export function RouteSummaryCard({
           <Text color="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
             Pickup Location
           </Text>
-          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15.5, lineHeight: 21 }}>
+          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 21 }}>
             {pickup || 'Set pickup'}
           </Text>
         </View>
@@ -67,7 +67,7 @@ export function RouteSummaryCard({
           <Text color="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
             Drop Location
           </Text>
-          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15.5, lineHeight: 21 }}>
+          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 21 }}>
             {drop || 'Set drop-off'}
           </Text>
         </View>
@@ -78,7 +78,7 @@ export function RouteSummaryCard({
         accessibilityRole="button"
         accessibilityLabel="Add a stop"
         hitSlop={6}
-        style={({ pressed }) => ({
+        style={() => ({
           width: 34,
           height: 34,
           borderRadius: 17,
@@ -87,7 +87,6 @@ export function RouteSummaryCard({
           borderColor: theme.colors.border,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: pressed ? 0.6 : 1,
           ...theme.shadows.card,
         })}
       >

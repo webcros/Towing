@@ -1,34 +1,77 @@
-import React, { useCallback, useState } from 'react';
-import { Image, Pressable, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Image, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@towing/theme';
-import { Button, StatusBadge } from '@towing/ui';
-import { Camera } from '@/icons';
+import { Button, StatusBadge, Skeleton, ErrorState } from '@towing/ui';
+import { Camera, RefreshCw } from '@/icons';
 import { SubScreen } from '@/components/SubScreen';
 import { TextField } from '@/components/TextField';
-import { useProfileStore } from '@/features/account/store/profileStore';
+import { useProfile, useUpdateProfile } from '@/features/account/api/profile.queries';
+import { Pressable } from '@/motion';
 
 const avatar = require('@/assets/illustrations/avatar-placeholder.png');
 
 export function PersonalInformationScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
-  const setProfile = useProfileStore((s) => s.setProfile);
+  const { data: profile, isPending, isError, refetch } = useProfile();
+  const updateProfile = useUpdateProfile();
 
-  const [name, setName] = useState(() => useProfileStore.getState().name);
-  const [phone, setPhone] = useState(() => useProfileStore.getState().phone);
-  const [email, setEmail] = useState(() => useProfileStore.getState().email);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [seeded, setSeeded] = useState(false);
 
+  // Seeds once — after that the fields are the user's own edits, not the server's.
+  useEffect(() => {
+    if (profile && !seeded) {
+      setName(profile.name ?? '');
+      setEmail(profile.email ?? '');
+      setSeeded(true);
+    }
+  }, [profile, seeded]);
+
+  // No photo-upload flow exists yet for the profile avatar (only the vehicle RC upload does).
   const notReady = useCallback(() => {}, []);
   const save = () => {
-    setProfile({ name: name.trim(), phone: phone.trim(), email: email.trim() });
-    navigation.goBack();
+    updateProfile.mutate(
+      { name: name.trim(), email: email.trim() ? email.trim() : null },
+      { onSuccess: () => navigation.goBack() },
+    );
   };
+
+  if (isError) {
+    return (
+      <SubScreen title="Personal Information">
+        <ErrorState title="Couldn't load your profile" onRetry={() => refetch()} icon={RefreshCw} />
+      </SubScreen>
+    );
+  }
+
+  if (isPending || !profile) {
+    return (
+      <SubScreen title="Personal Information">
+        <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+          <Skeleton width={92} height={92} radius={46} />
+        </View>
+        <Skeleton width="100%" height={64} radius={12} />
+        <Skeleton width="100%" height={64} radius={12} />
+        <Skeleton width="100%" height={64} radius={12} />
+      </SubScreen>
+    );
+  }
 
   return (
     <SubScreen
       title="Personal Information"
-      footer={<Button label="Save Changes" fullWidth onPress={save} disabled={!name.trim()} />}
+      footer={
+        <Button
+          label="Save Changes"
+          fullWidth
+          loading={updateProfile.isPending}
+          onPress={save}
+          disabled={!name.trim()}
+        />
+      }
     >
       <View style={{ alignItems: 'center', paddingVertical: 8 }}>
         <View>
@@ -59,8 +102,9 @@ export function PersonalInformationScreen() {
       <TextField label="Full Name" value={name} onChangeText={setName} autoCapitalize="words" />
       <TextField
         label="Phone Number"
-        value={phone}
-        onChangeText={setPhone}
+        value={profile.mobile}
+        onChangeText={() => {}}
+        editable={false}
         keyboardType="phone-pad"
         rightSlot={<StatusBadge label="Verified" tone="success" />}
       />

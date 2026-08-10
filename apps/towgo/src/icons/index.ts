@@ -21,6 +21,7 @@ export {
   History,
   X,
   CircleX,
+  CircleCheck,
   RefreshCw,
   Phone,
   MessageCircle,
@@ -59,4 +60,5 @@ export {
   Route,
   IndianRupee,
   WifiOff,
+  Download,
 } from 'lucide-react-native';

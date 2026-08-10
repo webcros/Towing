@@ -12,7 +12,7 @@ import type { RootStackParamList } from '@/navigation/types';
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 10 }}>
-      <Text variant="label" color="tertiary" style={{ paddingHorizontal: 4 }}>
+      <Text variant="overline" color="tertiary" style={{ paddingHorizontal: 4 }}>
         {label}
       </Text>
       {children}
@@ -41,8 +41,18 @@ export function SettingsScreen() {
 
       <Section label="Legal">
         <SettingsList>
-          <SettingsRow icon={FileText} title="Privacy Policy" trailing="chevron" onPress={notReady} />
-          <SettingsRow icon={FileText} title="Terms of Service" trailing="chevron" onPress={notReady} />
+          <SettingsRow
+            icon={FileText}
+            title="Privacy Policy"
+            trailing="chevron"
+            onPress={() => navigation.navigate('Legal')}
+          />
+          <SettingsRow
+            icon={FileText}
+            title="Terms of Service"
+            trailing="chevron"
+            onPress={() => navigation.navigate('Legal')}
+          />
         </SettingsList>
       </Section>
 

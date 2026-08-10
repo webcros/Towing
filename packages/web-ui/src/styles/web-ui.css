@@ -1,0 +1,80 @@
+/*
+ * Shared web-console theme layer (TowFleet + future Admin).
+ * Import AFTER `@import "tailwindcss"` in the app's globals.css.
+ * Color values come from the CSS variables emitted by <ThemeStyles/>
+ * (packages/web-ui/src/theme/css-vars.ts), which are bridged from
+ * @towing/theme tokens — one source of truth with the mobile apps.
+ */
+
+/* Dark mode via class strategy: <html class="dark"> flips every token. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  /* Brand */
+  --color-brand: var(--brand);
+  --color-brand-pressed: var(--brand-pressed);
+  --color-on-brand: var(--on-brand);
+  --color-brand-tint: var(--brand-tint);
+
+  /* Surfaces */
+  --color-surface0: var(--surface0);
+  --color-surface1: var(--surface1);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-divider: var(--divider);
+  --color-overlay: var(--overlay);
+  --color-map-bg: var(--map-bg);
+
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-inverse: var(--text-inverse);
+
+  /* Status */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+  --color-sos: var(--sos);
+
+  /* Soft status pills */
+  --color-success-soft-bg: var(--success-soft-bg);
+  --color-success-soft-fg: var(--success-soft-fg);
+  --color-warning-soft-bg: var(--warning-soft-bg);
+  --color-warning-soft-fg: var(--warning-soft-fg);
+  --color-error-soft-bg: var(--error-soft-bg);
+  --color-error-soft-fg: var(--error-soft-fg);
+  --color-info-soft-bg: var(--info-soft-bg);
+  --color-info-soft-fg: var(--info-soft-fg);
+
+  /* Accents / misc */
+  --color-star: var(--star);
+  --color-skeleton-base: var(--skeleton-base);
+  --color-skeleton-highlight: var(--skeleton-highlight);
+  --color-fab-bg: var(--fab-bg);
+  --color-tab-bar-bg: var(--tab-bar-bg);
+  --color-tab-active: var(--tab-active);
+  --color-tab-inactive: var(--tab-inactive);
+
+  /* Typography (spec §10.4 — Fontshare) */
+  --font-sans:
+    'General Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Clash Display', var(--font-sans);
+
+  /* Radii (spec §10.5: 8 inputs · 12 cards · 16 sheets) */
+  --radius-input: 8px;
+  --radius-card: 12px;
+  --radius-sheet: 16px;
+}
+
+@layer base {
+  body {
+    background-color: var(--surface0);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}

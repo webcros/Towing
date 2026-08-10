@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { ArrowLeft } from '@/icons';
+import { Pressable } from '@/motion';
 
 /**
  * Boxed 42px back button used by the full-screen flows (booking, tracking,
@@ -25,17 +26,17 @@ export function BackButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
-      style={({ pressed }) => [
+      style={() => [
         {
-          width: 42,
-          height: 42,
-          borderRadius: 11,
+          // 44 is the minimum tap target (spec 10.11); this was 42.
+          width: 44,
+          height: 44,
+          borderRadius: 12,
           backgroundColor: theme.colors.card,
           borderWidth: 1,
           borderColor: theme.colors.border,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: pressed ? 0.7 : 1,
           ...theme.shadows.card,
         },
         style,

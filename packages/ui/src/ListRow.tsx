@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@towing/theme';
+import { usePressablePrimitive } from './PressableSlot';
 import { Text } from './Text';
 
 export type ListRowProps = {
@@ -23,6 +24,7 @@ export function ListRow({
   style,
 }: ListRowProps) {
   const theme = useTheme();
+  const Pressable = usePressablePrimitive();
 
   const content = (
     <View
@@ -41,7 +43,7 @@ export function ListRow({
       {leading}
       <View style={{ flex: 1 }}>
         {typeof title === 'string' ? (
-          <Text variant="body" weight="medium">
+          <Text variant="subtitle" weight="medium">
             {title}
           </Text>
         ) : (
@@ -61,7 +63,11 @@ export function ListRow({
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      <Pressable
+        onPress={onPress}
+        pressScale={theme.motion.pressScale.row}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
         {content}
       </Pressable>
     );

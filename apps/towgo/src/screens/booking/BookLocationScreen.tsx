@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +13,7 @@ import { LocationActionButtons } from '@/features/booking/components/LocationAct
 import { RecentLocationsList } from '@/features/booking/components/RecentLocationsList';
 import type { RecentLocation } from '@/features/booking/data/recentLocations.data';
 import type { RootStackParamList } from '@/navigation/types';
+import { Pressable } from '@/motion';
 
 export function BookLocationScreen() {
   const theme = useTheme();
@@ -57,7 +58,7 @@ export function BookLocationScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
-            paddingHorizontal: 16,
+            paddingHorizontal: 20,
             paddingTop: 4,
             paddingBottom: 12,
           }}
@@ -67,7 +68,6 @@ export function BookLocationScreen() {
             accessibilityRole="button"
             accessibilityLabel="Go back"
             hitSlop={8}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           >
             <ArrowLeft size={24} color={theme.colors.textPrimary} />
           </Pressable>
@@ -76,7 +76,7 @@ export function BookLocationScreen() {
           </Text>
         </View>
 
-        <View style={{ paddingHorizontal: 16, gap: 12 }}>
+        <View style={{ paddingHorizontal: 20, gap: 12 }}>
           <BookingPills />
           <LocationFields onFocusField={setActiveField} />
           <LocationActionButtons onSelectOnMap={notReady} onAddStops={notReady} />
@@ -85,7 +85,7 @@ export function BookLocationScreen() {
         {/* Recents */}
         <ScrollView
           style={{ flex: 1, marginTop: 6 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -95,7 +95,7 @@ export function BookLocationScreen() {
         {/* Continue */}
         <View
           style={{
-            paddingHorizontal: 16,
+            paddingHorizontal: 20,
             paddingTop: 10,
             paddingBottom: 12,
             borderTopWidth: 1,

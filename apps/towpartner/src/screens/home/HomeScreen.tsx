@@ -15,6 +15,7 @@ import { useTabBarSpace } from '@/navigation/DriverTabBar';
 import { useDashboard } from '@/features/dashboard/api/dashboard.queries';
 import { useDriverStatusStore } from '@/features/dashboard/store/driverStatusStore';
 import { OnlineStatusCard } from '@/features/dashboard/components/OnlineStatusCard';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import { RecentActivityRow } from '@/features/dashboard/components/RecentActivityRow';
 import { driverColors } from '@/theme/driverColors';
 import { formatINR, pad2 } from '@/utils/format';
@@ -36,6 +37,15 @@ export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isOnline = useDriverStatusStore((s) => s.isOnline);
   const toggle = useDriverStatusStore((s) => s.toggle);
+  // RootNavigator keeps this synced off the authoritative `/kyc/status` read
+  // (`useKycStatus`'s own comment) — reading it here rather than re-deriving
+  // is the whole point of that sync. `kycVerified` additionally requires that
+  // read to have actually completed THIS session — `identity.kycStatus`
+  // alone can be a stale 'approved' hydrated from a previous session whose
+  // approval was since revoked, and the toggle must not go interactive off
+  // an unconfirmed value even for the brief window before the fetch settles.
+  const approved = useAuthStore((s) => s.identity?.kycStatus) === 'approved';
+  const kycVerified = useAuthStore((s) => s.kycVerified);
   const tabBarSpace = useTabBarSpace();
   const { data, isPending, isError, refetch } = useDashboard();
 
@@ -63,7 +73,7 @@ export function HomeScreen() {
       />
 
       <View style={{ paddingHorizontal: 20, gap: 20 }}>
-        <OnlineStatusCard isOnline={isOnline} onToggle={toggle} />
+        <OnlineStatusCard isOnline={isOnline} onToggle={toggle} disabled={!approved || !kycVerified} />
 
         {isError ? (
           <ErrorState
@@ -131,7 +141,7 @@ export function HomeScreen() {
                   label="Vehicles"
                   bg={driverColors.tile.blue}
                   iconColor={INDIGO_ICON}
-                  onPress={() => navigation.navigate('MyVehicles')}
+                  onPress={() => navigation.navigate('Capabilities')}
                 />
                 <QuickActionTile
                   icon={User}

@@ -1,11 +1,12 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, Divider } from '@towing/ui';
 import { Truck, Clock, StickyNote, CircleX } from '@/icons';
 import { StatColumn } from '@/components/StatColumn';
 import { useBookingStore } from '../store/bookingStore';
 import { towTypes } from '../data/towTypes.data';
+import { Pressable } from '@/motion';
 
 export function RequestDetailsCard({ onCancel }: { onCancel: () => void }) {
   const theme = useTheme();
@@ -45,7 +46,7 @@ export function RequestDetailsCard({ onCancel }: { onCancel: () => void }) {
         onPress={onCancel}
         accessibilityRole="button"
         accessibilityLabel="Cancel request"
-        style={({ pressed }) => ({
+        style={() => ({
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
@@ -55,7 +56,6 @@ export function RequestDetailsCard({ onCancel }: { onCancel: () => void }) {
           backgroundColor: theme.colors.card,
           borderWidth: 1,
           borderColor: theme.colors.error,
-          opacity: pressed ? 0.7 : 1,
         })}
       >
         <CircleX size={18} color={theme.colors.error} strokeWidth={2} />

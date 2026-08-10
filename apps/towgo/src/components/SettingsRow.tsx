@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { ChevronRight } from '@/icons';
+import { Pressable } from '@/motion';
 
 export type SettingsRowProps = {
   icon?: IconComponent;

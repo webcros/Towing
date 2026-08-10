@@ -26,7 +26,7 @@ export const bookingDetailsMock: BookingDetail[] = [
     towTypeId: 'light',
     durationMinutes: 45,
     distanceKm: 8.6,
-    paymentMethod: 'cash',
+    paymentMethod: 'card',
     driverPhoto: avatar,
     driverTrips: 128,
   },

@@ -30,7 +30,7 @@ export function BookingBottomBar({ fare, onConfirm }: { fare: number; onConfirm:
           {formatINR(fare)}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-          <Text color="secondary" style={{ fontSize: 10.4, lineHeight: 15.6 }}>
+          <Text color="secondary" style={{ fontSize: 12, lineHeight: 18 }}>
             Total Estimate
           </Text>
           <Info size={12} color={theme.colors.textTertiary} />

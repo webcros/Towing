@@ -1,11 +1,7 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@towing/theme';
+import { usePressablePrimitive } from './PressableSlot';
 import { Text, type TextColor } from './Text';
 import type { IconComponent } from './types';
 
@@ -41,6 +37,7 @@ export function Button({
   accessibilityLabel,
 }: ButtonProps) {
   const theme = useTheme();
+  const Pressable = usePressablePrimitive();
   const isDisabled = disabled || loading;
   const height = heightOverride ?? (size === 'lg' ? 52 : 48);
 
@@ -49,6 +46,8 @@ export function Button({
       case 'primary':
         return pressed ? theme.colors.brandPressed : theme.colors.brand;
       case 'destructive':
+        // No sosPressed token exists, so darken via opacity instead. Without
+        // this the destructive variant was the only one with no press feedback.
         return theme.colors.sos;
       case 'secondary':
         return pressed ? theme.colors.surface1 : theme.colors.card;
@@ -83,6 +82,8 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      pressScale={theme.motion.pressScale.button}
+      haptic={variant === 'primary' ? 'medium' : 'light'}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
@@ -96,7 +97,7 @@ export function Button({
           justifyContent: 'center',
           gap: theme.spacing.sm,
           paddingHorizontal: theme.spacing.xl,
-          opacity: isDisabled ? 0.5 : 1,
+          opacity: isDisabled ? 0.5 : variant === 'destructive' && pressed ? 0.9 : 1,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
           borderWidth: variant === 'secondary' ? 1 : 0,
           borderColor: theme.colors.border,
@@ -109,7 +110,7 @@ export function Button({
       ) : (
         <>
           {LeftIcon ? <LeftIcon size={20} color={iconColorMap[textColor]} /> : null}
-          <Text variant="body" weight="semibold" color={textColor}>
+          <Text variant="subtitle" color={textColor}>
             {label}
           </Text>
         </>

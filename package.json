@@ -13,9 +13,22 @@
     "driver": "pnpm --filter towpartner start",
     "driver:go": "pnpm --filter towpartner go",
     "driver:android": "pnpm --filter towpartner android",
+    "fleet": "pnpm --filter towfleet-web dev",
+    "backend": "pnpm --filter @towing/backend dev",
+    "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3"
+    },
+    "onlyBuiltDependencies": [
+      "sharp"
+    ]
   },
   "devDependencies": {
     "prettier": "^3.4.2",

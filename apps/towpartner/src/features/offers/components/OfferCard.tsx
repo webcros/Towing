@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Card, Text, Skeleton, type IconComponent } from '@towing/ui';
 import { MapPin, Wallet, Truck, Route, Clock, Car, MessageCircle } from '@/icons';
@@ -7,6 +7,7 @@ import { Pill } from '@/components/Pill';
 import { driverColors } from '@/theme/driverColors';
 import { formatINR } from '@/utils/format';
 import type { JobOffer } from '../types';
+import { Pressable } from '@/motion';
 
 const carImage = require('@/assets/illustrations/offer-car.png');
 
@@ -199,7 +200,6 @@ export function OfferCard({
           paddingVertical: 14,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: pressed ? 0.9 : 1,
         })}
       >
         <Text weight="medium" style={{ fontSize: 16, lineHeight: 25, color: '#111827' }}>

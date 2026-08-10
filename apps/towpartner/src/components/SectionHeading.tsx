@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '@towing/ui';
 import { driverColors } from '@/theme/driverColors';
+import { Pressable } from '@/motion';
 
 export type SectionHeadingProps = {
   title: string;
@@ -18,7 +19,7 @@ export function SectionHeading({ title, actionLabel, onAction, size = 19 }: Sect
     <View
       style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
     >
-      <Text weight="semibold" style={{ fontSize: size, lineHeight: size + 7, letterSpacing: -0.2 }}>
+      <Text weight="semibold" style={{ fontSize: size, lineHeight: size + 4, letterSpacing: -0.2 }}>
         {title}
       </Text>
       {actionLabel ? (
@@ -28,7 +29,7 @@ export function SectionHeading({ title, actionLabel, onAction, size = 19 }: Sect
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
         >
-          <Text weight="medium" style={{ fontSize: 15, color: driverColors.accent }}>
+          <Text weight="medium" style={{ fontSize: 14, lineHeight: 17, color: driverColors.accent }}>
             {actionLabel}
           </Text>
         </Pressable>

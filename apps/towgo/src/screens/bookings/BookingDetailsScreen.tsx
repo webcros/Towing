@@ -3,23 +3,49 @@ import { View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '@towing/theme';
-import { Screen, Text, OfflineBanner, EmptyState, ErrorState, Skeleton } from '@towing/ui';
-import { Headphones, ClipboardList } from '@/icons';
-import { BackButton } from '@/components/BackButton';
-import { SectionHeading } from '@/components/SectionHeading';
-import { SettingsList } from '@/components/SettingsList';
-import { SettingsRow } from '@/components/SettingsRow';
+import {
+  Screen,
+  Text,
+  OfflineBanner,
+  EmptyState,
+  ErrorState,
+  IconButton,
+} from '@towing/ui';
+import {
+  Headphones,
+  ClipboardList,
+  Truck,
+  Clock,
+  Route,
+  IndianRupee,
+  Receipt,
+  ShieldCheck,
+  ArrowLeft,
+} from '@/icons';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useTabBarSpace } from '@/navigation/TabBar';
 import { useBooking } from '@/features/bookings/api/bookings.queries';
-import { BookingTripCard } from '@/features/bookings/components/BookingTripCard';
-import { BookingSummaryCard } from '@/features/bookings/components/BookingSummaryCard';
+import { BookingHero } from '@/features/bookings/components/BookingHero';
+import { RouteRows } from '@/features/bookings/components/RouteRows';
+import { DetailRow, RowDivider } from '@/components/DetailRow';
 import { BookingDetailSkeleton } from '@/features/bookings/components/BookingDetailSkeleton';
-import { DriverInfoCard } from '@/features/booking/components/DriverInfoCard';
+import { PAYMENT_LABEL } from '@/features/bookings/labels';
 import { towTypes } from '@/features/booking/data/towTypes.data';
+import { formatEta, formatINR } from '@/utils/format';
 import type { BookingsStackParamList, RootStackParamList } from '@/navigation/types';
 
+/**
+ * Booking details.
+ *
+ * Structured as one flat list rather than a stack of cards. Nesting bordered,
+ * shadowed cards inside a bordered page is what made this screen read as
+ * cluttered: every card boundary is a line the eye has to parse before it gets
+ * to the content. Here a single 24pt heading carries the hierarchy, every row
+ * shares one icon column, and hairlines do the grouping.
+ */
 export function BookingDetailsScreen() {
   const theme = useTheme();
+  const tabBarSpace = useTabBarSpace();
   const online = useOnlineStatus();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<BookingsStackParamList, 'BookingDetails'>>();
@@ -61,40 +87,76 @@ export function BookingDetailsScreen() {
   } else {
     content = (
       <>
-        <BookingTripCard booking={data} towName={towName} />
+        <View style={{ gap: theme.spacing.xs }}>
+          <Text variant="h1">Booking details</Text>
+          <Text variant="caption" color="secondary">
+            {data.reference}
+          </Text>
+        </View>
 
-        <View style={{ gap: 12 }}>
-          <SectionHeading title="Driver Details" />
-          <DriverInfoCard
-            driver={{
-              name: data.driverName,
-              photo: data.driverPhoto,
-              rating: data.driverRating,
-              trips: data.driverTrips,
-              vehiclePlate: data.vehiclePlate,
-            }}
-            vehicleLabel={`${towName} Tow Truck`}
-            onCall={notReady}
-            onMessage={notReady}
+        <BookingHero
+          booking={data}
+          towName={towName}
+          onCall={notReady}
+          onMessage={notReady}
+        />
+
+        <View>
+          <RowDivider />
+          <RouteRows booking={data} />
+
+          <RowDivider />
+          <DetailRow icon={Truck} label="Tow type" value={`${towName} tow truck`} />
+          <RowDivider />
+          <DetailRow
+            icon={Clock}
+            label="Duration"
+            value={formatEta(data.durationMinutes)}
+            tabular
           />
+          <RowDivider />
+          <DetailRow
+            icon={Route}
+            label="Distance"
+            value={`${data.distanceKm} km`}
+            tabular
+          />
+          <RowDivider />
+          <DetailRow
+            icon={IndianRupee}
+            label="Payment"
+            value={PAYMENT_LABEL[data.paymentMethod]}
+          />
+          <RowDivider />
+          <DetailRow
+            icon={Receipt}
+            label="Total paid"
+            value={formatINR(data.fare)}
+            strong
+            tabular
+          />
+          <RowDivider />
         </View>
 
-        <View style={{ gap: 12 }}>
-          <SectionHeading title="Booking Summary" />
-          <BookingSummaryCard booking={data} />
-        </View>
-
-        <View style={{ gap: 12 }}>
-          <SectionHeading title="Help & Support" />
-          <SettingsList>
-            <SettingsRow
+        <View style={{ gap: theme.spacing.sm }}>
+          <Text variant="h2">Help &amp; support</Text>
+          <View>
+            <DetailRow
               icon={Headphones}
-              title="Need Help?"
-              subtitle="Get support for this booking"
-              trailing="chevron"
+              label="Need help?"
+              description="Get support for this booking"
+              chevron
               onPress={openSupport}
             />
-          </SettingsList>
+            <RowDivider />
+            <DetailRow
+              icon={ShieldCheck}
+              label="Report an issue"
+              description="Tell us what went wrong on this trip"
+              chevron
+              onPress={openSupport}
+            />
+          </View>
         </View>
       </>
     );
@@ -105,24 +167,15 @@ export function BookingDetailsScreen() {
       scroll
       edges={['top']}
       banner={<OfflineBanner visible={!online} />}
-      contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+      contentContainerStyle={{ paddingBottom: tabBarSpace }}
     >
-      <View style={{ paddingHorizontal: 20, paddingTop: 4, gap: 16 }}>
-        {/* Boxed back button overlaid on a centred two-line title. */}
-        <View style={{ position: 'relative', minHeight: 48, justifyContent: 'center' }}>
-          <BackButton onPress={goBack} style={{ position: 'absolute', left: 0, top: 0 }} />
-          <View style={{ alignItems: 'center', gap: 2, paddingHorizontal: 54 }}>
-            <Text weight="bold" align="center" numberOfLines={1} style={{ fontSize: 20, lineHeight: 26 }}>
-              Booking Details
-            </Text>
-            {data ? (
-              <Text color="secondary" align="center" style={{ fontSize: 13, lineHeight: 18 }}>
-                Booking ID: {data.reference}
-              </Text>
-            ) : isPending ? (
-              <Skeleton width={140} height={13} />
-            ) : null}
-          </View>
+      {/* Sections sit 28 apart — comfortably more than the 14 of padding inside a
+          row, so each group reads as its own block without needing a border. */}
+      <View style={{ paddingHorizontal: 20, paddingTop: theme.spacing.xs, gap: 28 }}>
+        {/* Back sits on its own line, left-aligned. A centred title with a floating
+            action over it read as an accident rather than a layout. */}
+        <View style={{ flexDirection: 'row' }}>
+          <IconButton icon={ArrowLeft} label="Go back" onPress={goBack} variant="surface" />
         </View>
 
         {content}

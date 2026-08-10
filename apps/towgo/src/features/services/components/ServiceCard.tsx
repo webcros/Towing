@@ -45,7 +45,7 @@ export function ServiceCard({ service, onPress }: { service: Service; onPress: (
         <Text weight="medium" style={{ fontSize: 17, lineHeight: 21 }}>
           {service.title}
         </Text>
-        <Text color="secondary" numberOfLines={2} style={{ fontSize: 11, lineHeight: 18.9 }}>
+        <Text color="secondary" numberOfLines={2} style={{ fontSize: 11, lineHeight: 17 }}>
           {service.description}
         </Text>
       </View>

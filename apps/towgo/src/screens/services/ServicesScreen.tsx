@@ -1,16 +1,18 @@
 import React, { useCallback } from 'react';
 import { View } from 'react-native';
-import { useTheme } from '@towing/theme';
 import { Screen, Text, OfflineBanner } from '@towing/ui';
 import { AppHeader } from '@/components/AppHeader';
+import { useCollapsingHeader } from '@/motion';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useTabBarSpace } from '@/navigation/TabBar';
 import { services, type ServiceId } from '@/features/services/data/services.data';
 import { ServicesHero } from '@/features/services/components/ServicesHero';
 import { ServiceCard } from '@/features/services/components/ServiceCard';
 import { SupportBanner } from '@/features/services/components/SupportBanner';
 
 export function ServicesScreen() {
-  const theme = useTheme();
+  const tabBarSpace = useTabBarSpace();
+  const { scrollY, screenProps } = useCollapsingHeader();
   const online = useOnlineStatus();
 
   // Service detail / booking flow and support are future screens.
@@ -22,10 +24,10 @@ export function ServicesScreen() {
       scroll
       edges={['top']}
       banner={<OfflineBanner visible={!online} />}
-      contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+      header={<AppHeader scrollY={scrollY} />}
+      contentContainerStyle={{ paddingBottom: tabBarSpace }}
+      {...screenProps}
     >
-      <AppHeader />
-
       <ServicesHero />
 
       {/* Figma 21:2 rhythm — heading 20/30, 16 to first card, 12 between cards, 22 to banner */}

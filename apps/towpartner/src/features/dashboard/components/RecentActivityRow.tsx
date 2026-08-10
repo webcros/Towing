@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { Check, Clock, ArrowRight } from '@/icons';
@@ -7,6 +7,7 @@ import { IconChip } from '@/components/IconChip';
 import { driverColors } from '@/theme/driverColors';
 import { formatINR } from '@/utils/format';
 import type { RecentJob } from '../types';
+import { Pressable } from '@/motion';
 
 /**
  * One row in the Home "Recent Activity" list. No trailing chevron — the whole
@@ -23,24 +24,23 @@ export function RecentActivityRow({ item, onPress }: { item: RecentJob; onPress?
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${item.vehicleName}, ${statusLabel}, ${formatINR(item.fare)}`}
-      style={({ pressed }) => ({
+      style={() => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
         paddingHorizontal: 16,
         paddingVertical: 14,
-        opacity: pressed ? 0.9 : 1,
       })}
     >
       <IconChip
         icon={completed ? Check : Clock}
         tone={completed ? 'green' : 'orange'}
-        size={40}
-        iconSize={17}
+        size={44}
+        iconSize={18}
       />
 
       <View style={{ flex: 1 }}>
-        <Text weight="medium" numberOfLines={1} style={{ fontSize: 15, lineHeight: 21 }}>
+        <Text weight="medium" numberOfLines={1} style={{ fontSize: 16, lineHeight: 24 }}>
           {item.vehicleName}
         </Text>
         <Text color="secondary" numberOfLines={1} style={{ fontSize: 13, lineHeight: 19 }}>
@@ -55,7 +55,7 @@ export function RecentActivityRow({ item, onPress }: { item: RecentJob; onPress?
       </View>
 
       <View style={{ alignItems: 'flex-end', gap: 2 }}>
-        <Text weight="medium" tabular style={{ fontSize: 15, lineHeight: 21 }}>
+        <Text weight="medium" tabular style={{ fontSize: 15, lineHeight: 22 }}>
           {formatINR(item.fare)}
         </Text>
         <Text style={{ fontSize: 12, lineHeight: 17, color: statusColor }}>{statusLabel}</Text>

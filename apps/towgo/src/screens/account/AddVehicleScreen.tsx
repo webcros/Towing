@@ -1,18 +1,31 @@
-import React, { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@towing/theme';
-import { Button, Text } from '@towing/ui';
-import { Camera, Trash2 } from '@/icons';
+import type { VehicleCategory } from '@towing/api-contracts';
+import { Button, Text, Skeleton } from '@towing/ui';
+import { Camera, Trash2, CircleCheck } from '@/icons';
 import { SubScreen } from '@/components/SubScreen';
 import { TextField } from '@/components/TextField';
-import { useVehiclesStore } from '@/features/account/store/vehiclesStore';
-import type { VehicleType } from '@/features/account/types';
+import {
+  useVehicles,
+  useCreateVehicle,
+  useUpdateVehicle,
+  useDeleteVehicle,
+  useUploadVehicleRc,
+} from '@/features/account/api/vehicles.queries';
 import type { RootStackParamList } from '@/navigation/types';
+import { Pressable } from '@/motion';
 
-const TYPES: { value: VehicleType; label: string; hint: string }[] = [
-  { value: 'wheel_lift', label: 'Wheel-lift', hint: 'Cars, hatchbacks' },
-  { value: 'flatbed', label: 'Flatbed', hint: 'SUVs, luxury, EVs' },
+const TYPES: { value: VehicleCategory; label: string; hint: string }[] = [
+  { value: 'hatchback', label: 'Hatchback', hint: 'Compact cars' },
+  { value: 'sedan', label: 'Sedan', hint: 'Mid-size cars' },
+  { value: 'suv', label: 'SUV', hint: 'SUVs, crossovers' },
+  { value: 'muv', label: 'MUV', hint: 'Vans' },
+  { value: 'luxury', label: 'Luxury', hint: 'Premium, EVs' },
+  { value: 'bike', label: 'Bike', hint: 'Two-wheelers' },
+  { value: 'other', label: 'Other', hint: 'Anything else' },
 ];
 
 export function AddVehicleScreen() {
@@ -21,41 +34,110 @@ export function AddVehicleScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'AddVehicle'>>();
   const vehicleId = route.params?.vehicleId;
 
-  const addVehicle = useVehiclesStore((s) => s.addVehicle);
-  const updateVehicle = useVehiclesStore((s) => s.updateVehicle);
-  const removeVehicle = useVehiclesStore((s) => s.removeVehicle);
-  const existing = vehicleId
-    ? useVehiclesStore.getState().vehicles.find((v) => v.id === vehicleId)
-    : undefined;
+  const { data: vehicles, isPending: vehiclesPending } = useVehicles();
+  const createVehicle = useCreateVehicle();
+  const updateVehicle = useUpdateVehicle();
+  const deleteVehicle = useDeleteVehicle();
+  const uploadRc = useUploadVehicleRc();
 
-  const [type, setType] = useState<VehicleType>(existing?.type ?? 'wheel_lift');
-  const [makeModel, setMakeModel] = useState(existing?.makeModel ?? '');
-  const [plate, setPlate] = useState(existing?.plate ?? '');
-  const [color, setColor] = useState(existing?.color ?? '');
+  const existing = vehicleId ? vehicles?.find((v) => v.id === vehicleId) : undefined;
 
-  const notReady = useCallback(() => {}, []);
+  const [type, setType] = useState<VehicleCategory>('hatchback');
+  const [makeModel, setMakeModel] = useState('');
+  const [plate, setPlate] = useState('');
+  const [seeded, setSeeded] = useState(!vehicleId);
+  // Picked before the vehicle exists yet — uploaded right after create succeeds.
+  const [pendingRcUri, setPendingRcUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (existing && !seeded) {
+      setType(existing.type);
+      setMakeModel(existing.makeModel ?? '');
+      setPlate(existing.plate ?? '');
+      setSeeded(true);
+    }
+  }, [existing, seeded]);
+
+  const pickRcPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (result.canceled || result.assets.length === 0) return;
+
+    const uri = result.assets[0].uri;
+    if (vehicleId) {
+      uploadRc.mutate({ vehicleId, localUri: uri });
+    } else {
+      setPendingRcUri(uri);
+    }
+  };
+
   const canSave = makeModel.trim().length > 0 && plate.trim().length > 0;
-  const save = () => {
-    const data = { type, makeModel: makeModel.trim(), plate: plate.trim(), color: color.trim() };
-    if (vehicleId) updateVehicle(vehicleId, data);
-    else addVehicle(data);
-    navigation.goBack();
+
+  // Awaits the RC upload instead of firing it and navigating away
+  // immediately — a failed presigned PUT (dropped connection, expired
+  // signature, backend's size cap) was previously invisible: the user saw
+  // "vehicle saved" and had no way to know the photo never uploaded.
+  const save = async () => {
+    const data = { type, makeModel: makeModel.trim(), plate: plate.trim() };
+    try {
+      if (vehicleId) {
+        await updateVehicle.mutateAsync({ vehicleId, patch: data });
+      } else {
+        const created = await createVehicle.mutateAsync(data);
+        if (pendingRcUri) {
+          try {
+            await uploadRc.mutateAsync({ vehicleId: created.id, localUri: pendingRcUri });
+          } catch (e) {
+            Alert.alert(
+              'RC upload failed',
+              e instanceof Error
+                ? e.message
+                : 'Your vehicle was saved, but the RC photo did not upload. Open the vehicle to try again.',
+            );
+          }
+        }
+      }
+      navigation.goBack();
+    } catch {
+      Alert.alert('Could not save vehicle', 'Please try again.');
+    }
   };
   const del = () => {
-    if (vehicleId) removeVehicle(vehicleId);
-    navigation.goBack();
+    if (vehicleId) deleteVehicle.mutate(vehicleId, { onSuccess: () => navigation.goBack() });
   };
+
+  const saving = createVehicle.isPending || updateVehicle.isPending || uploadRc.isPending;
+  const rcStatus = existing?.rcUrl
+    ? 'RC uploaded'
+    : uploadRc.isPending
+      ? 'Uploading…'
+      : pendingRcUri
+        ? 'RC selected — uploads on save'
+        : 'Upload RC (optional)';
+  const rcDone = !!existing?.rcUrl || (!!pendingRcUri && !vehicleId);
+
+  if (vehicleId && vehiclesPending) {
+    return (
+      <SubScreen title="Edit Vehicle">
+        <Skeleton width="100%" height={90} radius={12} />
+        <Skeleton width="100%" height={64} radius={12} />
+        <Skeleton width="100%" height={64} radius={12} />
+      </SubScreen>
+    );
+  }
 
   return (
     <SubScreen
       title={vehicleId ? 'Edit Vehicle' : 'Add Vehicle'}
-      footer={<Button label="Save Vehicle" fullWidth disabled={!canSave} onPress={save} />}
+      footer={<Button label="Save Vehicle" fullWidth disabled={!canSave} loading={saving} onPress={save} />}
     >
       <View style={{ gap: 7 }}>
         <Text weight="medium" style={{ fontSize: 13, lineHeight: 17, color: theme.colors.textSecondary }}>
           Vehicle type
         </Text>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {TYPES.map((t) => {
             const selected = type === t.value;
             return (
@@ -65,19 +147,20 @@ export function AddVehicleScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 style={{
-                  flex: 1,
                   borderRadius: 12,
                   borderWidth: 1.5,
                   borderColor: selected ? theme.colors.brand : theme.colors.border,
                   backgroundColor: selected ? theme.colors.brandTint : theme.colors.card,
-                  padding: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
                   gap: 2,
+                  minWidth: '31%',
                 }}
               >
                 <Text weight="semibold" style={{ fontSize: 14, lineHeight: 19 }}>
                   {t.label}
                 </Text>
-                <Text color="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+                <Text color="secondary" style={{ fontSize: 11, lineHeight: 15 }}>
                   {t.hint}
                 </Text>
               </Pressable>
@@ -88,36 +171,42 @@ export function AddVehicleScreen() {
 
       <TextField label="Make & Model" value={makeModel} onChangeText={setMakeModel} placeholder="e.g. Maruti Swift" autoCapitalize="words" />
       <TextField label="Number Plate" value={plate} onChangeText={setPlate} placeholder="KA 01 AB 1234" autoCapitalize="characters" />
-      <TextField label="Color" value={color} onChangeText={setColor} placeholder="e.g. White" autoCapitalize="words" />
 
       <Pressable
-        onPress={notReady}
+        onPress={pickRcPhoto}
+        disabled={uploadRc.isPending}
         accessibilityRole="button"
         accessibilityLabel="Upload RC document"
         style={{
           borderRadius: 12,
           borderWidth: 1,
           borderStyle: 'dashed',
-          borderColor: theme.colors.borderStrong,
+          borderColor: rcDone ? theme.colors.success : theme.colors.borderStrong,
           paddingVertical: 16,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
+          opacity: uploadRc.isPending ? 0.6 : 1,
         }}
       >
-        <Camera size={18} color={theme.colors.textSecondary} />
-        <Text color="secondary" style={{ fontSize: 13.5 }}>
-          Upload RC (optional)
+        {rcDone ? (
+          <CircleCheck size={18} color={theme.colors.success} />
+        ) : (
+          <Camera size={18} color={theme.colors.textSecondary} />
+        )}
+        <Text color={rcDone ? 'success' : 'secondary'} style={{ fontSize: 14 }}>
+          {rcStatus}
         </Text>
       </Pressable>
 
       {vehicleId ? (
         <Pressable
           onPress={del}
+          disabled={deleteVehicle.isPending}
           accessibilityRole="button"
           accessibilityLabel="Delete vehicle"
-          style={({ pressed }) => ({
+          style={() => ({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
@@ -126,11 +215,11 @@ export function AddVehicleScreen() {
             borderRadius: 12,
             borderWidth: 1,
             borderColor: theme.colors.error,
-            opacity: pressed ? 0.7 : 1,
+            opacity: deleteVehicle.isPending ? 0.6 : 1,
           })}
         >
           <Trash2 size={17} color={theme.colors.error} />
-          <Text weight="semibold" style={{ fontSize: 14.5, color: theme.colors.error }}>
+          <Text weight="semibold" style={{ fontSize: 14, color: theme.colors.error }}>
             Delete Vehicle
           </Text>
         </Pressable>

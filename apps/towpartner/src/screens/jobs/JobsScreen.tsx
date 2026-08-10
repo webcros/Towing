@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '@towing/theme';
@@ -13,6 +13,7 @@ import { useJobs } from '@/features/jobs/api/jobs.queries';
 import { JobCard, JobCardSkeleton } from '@/features/jobs/components/JobCard';
 import type { JobFilter } from '@/features/jobs/types';
 import type { RootStackParamList } from '@/navigation/types';
+import { Pressable } from '@/motion';
 
 const FILTERS: FilterTabOption<JobFilter>[] = [
   { key: 'all', label: 'All' },
@@ -46,7 +47,7 @@ export function JobsScreen() {
       <DriverHeader title="Jobs" bellBadge onBell={() => navigation.navigate('Notifications')} />
 
       <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
-        <FilterTabs options={FILTERS} value={filter} onChange={setFilter} />
+        <FilterTabs options={FILTERS} value={filter} onChange={setFilter} labelSize={14} />
       </View>
 
       <View
@@ -86,7 +87,7 @@ export function JobsScreen() {
         </Pressable>
       </View>
 
-      <View style={{ paddingHorizontal: 20, gap: 14 }}>
+      <View style={{ paddingHorizontal: 20, gap: 18 }}>
         {isPending ? (
           <>
             <JobCardSkeleton />

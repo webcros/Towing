@@ -19,15 +19,15 @@ export function TotalEarningsCard({ summary }: { summary: EarningsSummary }) {
   const DeltaIcon = positive ? TrendingUp : TrendingDown;
 
   return (
-    <HeroCard style={{ padding: 20 }}>
+    <HeroCard style={{ padding: 20, borderRadius: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, lineHeight: 22, color: '#4B5563' }}>Total Earnings</Text>
+          <Text style={{ fontSize: 15, lineHeight: 18, color: '#4B5563' }}>Total Earnings</Text>
           <Text
             weight="bold"
             tabular
             numberOfLines={1}
-            style={{ fontSize: 34, lineHeight: 42, marginTop: 2 }}
+            style={{ fontSize: 44, lineHeight: 53, letterSpacing: -1, marginTop: 2 }}
           >
             {formatINR(summary.total)}
           </Text>
@@ -42,12 +42,12 @@ export function TotalEarningsCard({ summary }: { summary: EarningsSummary }) {
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <DeltaIcon size={14} color={deltaColor} strokeWidth={2.4} />
-              <Text weight="medium" style={{ fontSize: 13, lineHeight: 18, color: deltaColor }}>
+              <DeltaIcon size={11} color={deltaColor} strokeWidth={2.4} />
+              <Text weight="medium" style={{ fontSize: 14, lineHeight: 17, color: deltaColor }}>
                 {formatSignedPercent(summary.deltaPercent)}
               </Text>
             </View>
-            <Text color="secondary" style={{ fontSize: 13, lineHeight: 18, flexShrink: 1 }}>
+            <Text color="secondary" style={{ fontSize: 14, lineHeight: 17, flexShrink: 1 }}>
               {positive ? 'more than last week' : 'less than last week'}
             </Text>
           </View>

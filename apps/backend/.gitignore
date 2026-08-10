@@ -1,0 +1,9 @@
+dist/
+var/
+*.tsbuildinfo
+.env
+
+# Load-test artefacts. `.tokens.json` holds real signed fleet access tokens
+# (2h), and results are machine-specific numbers — neither belongs in git.
+load/.tokens.json
+load/results/

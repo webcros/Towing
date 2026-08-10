@@ -17,27 +17,36 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
     <View style={{ position: 'relative' }}>
       <Card
         radius="sheet"
-        padding={18}
+        padding={theme.spacing.lg}
         onPress={onPress}
         accessibilityLabel={`${booking.originLabel} to ${booking.destinationLabel}, ${status.label}, ${formatINR(booking.fare)}`}
-        style={{ gap: 18 }}
+        style={{ gap: theme.spacing.lg }}
       >
         {/* Route timeline + trip info */}
         <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
           <RouteTimeline tone={booking.routeTone} />
-          <View style={{ flex: 1, paddingLeft: 14, minHeight: 74, justifyContent: 'space-between' }}>
+          <View
+            style={{
+              flex: 1,
+              paddingLeft: theme.spacing.lg,
+              // Clears the timeline rail (dot 14 + 32 connector + 12 margins + pin 16).
+              minHeight: 76,
+              justifyContent: 'space-between',
+            }}
+          >
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
-                gap: 12,
+                gap: theme.spacing.lg,
               }}
             >
               <Text
                 weight="semibold"
                 numberOfLines={1}
-                style={{ fontSize: 16, lineHeight: 20, flexShrink: 1 }}
+                variant="subtitle"
+                style={{ flexShrink: 1 }}
               >
                 {booking.originLabel}
               </Text>
@@ -45,9 +54,10 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
             </View>
 
             <Text
+              variant="caption"
               color="secondary"
               numberOfLines={1}
-              style={{ fontSize: 12, lineHeight: 18, marginTop: 8 }}
+              style={{ marginTop: theme.spacing.sm }}
             >
               to {booking.destinationLabel}
             </Text>
@@ -60,28 +70,34 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
         <View
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 }}>
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg, flex: 1 }}
+          >
             <Image source={booking.truckImage} resizeMode="contain" style={{ width: 90, height: 56 }} />
             <View style={{ flex: 1 }}>
-              <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 22 }}>
+              <Text variant="subtitle" numberOfLines={1}>
                 {booking.vehiclePlate}
               </Text>
-              <Text color="secondary" numberOfLines={1} style={{ fontSize: 14, lineHeight: 21 }}>
+              <Text
+                color="secondary"
+                numberOfLines={1}
+                variant="body"
+              >
                 {booking.driverName}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Star size={15} color={theme.colors.star} fill={theme.colors.star} />
-                <Text tabular style={{ fontSize: 13, lineHeight: 19.5 }}>
+                <Text variant="caption" tabular>
                   {booking.driverRating.toFixed(1)}
                 </Text>
               </View>
             </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text color="tertiary" style={{ fontSize: 13, lineHeight: 19.5 }}>
+            <Text variant="caption" color="tertiary" style={{ marginBottom: 2 }}>
               Amount
             </Text>
-            <Text weight="semibold" tabular style={{ fontSize: 17, lineHeight: 25.5 }}>
+            <Text variant="subtitle" tabular>
               {formatINR(booking.fare)}
             </Text>
           </View>
@@ -89,7 +105,7 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
       </Card>
 
       {/* Floating status badge — pokes above the top-right corner (Figma). */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: -10, right: 6 }}>
+      <View pointerEvents="none" style={{ position: 'absolute', top: -10, right: 12 }}>
         <StatusBadge label={status.label} tone={status.tone} />
       </View>
     </View>
@@ -97,11 +113,14 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
 }
 
 export function BookingCardSkeleton() {
+  const theme = useTheme();
+
   return (
-    <Card radius="sheet" padding={18} style={{ gap: 18 }}>
-      <View style={{ flexDirection: 'row', gap: 14 }}>
-        <Skeleton width={14} height={70} radius={7} />
-        <View style={{ flex: 1, justifyContent: 'space-between', minHeight: 70 }}>
+    <Card radius="sheet" padding={theme.spacing.lg} style={{ gap: theme.spacing.lg }}>
+      {/* gap matches RouteTimeline's 18px track + the card's 16px paddingLeft. */}
+      <View style={{ flexDirection: 'row', gap: theme.spacing.xl }}>
+        <Skeleton width={14} height={76} radius={7} />
+        <View style={{ flex: 1, justifyContent: 'space-between', minHeight: 76 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Skeleton width="45%" height={16} />
             <Skeleton width={70} height={12} />
@@ -110,7 +129,7 @@ export function BookingCardSkeleton() {
         </View>
       </View>
       <Divider />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg }}>
         <Skeleton width={90} height={56} radius={8} />
         <View style={{ flex: 1, gap: 8 }}>
           <Skeleton width="60%" height={14} />

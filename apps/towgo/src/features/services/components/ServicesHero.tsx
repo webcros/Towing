@@ -24,7 +24,7 @@ export function ServicesHero() {
         </Text>
         <Text
           color="secondary"
-          style={{ fontSize: 11, lineHeight: 21.75, marginTop: 10, maxWidth: 216 }}
+          style={{ fontSize: 11, lineHeight: 18, marginTop: 10, maxWidth: 216 }}
         >
           We offer a range of towing and roadside assistance services to get you back on the road
           safely.

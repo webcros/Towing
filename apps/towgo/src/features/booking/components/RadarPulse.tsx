@@ -3,7 +3,7 @@ import { Animated, Easing, View } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { useTheme } from '@towing/theme';
 import { Truck } from '@/icons';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useReducedMotion } from '@towing/ui';
 
 const SIZE = 300;
 const CENTER = SIZE / 2;
@@ -25,17 +25,23 @@ const toXY = (angle: number, r: number) => ({
 
 function DriverMarker({ x, y, reduced }: { x: number; y: number; reduced: boolean }) {
   const theme = useTheme();
-  const opacity = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  // Pops in by scale rather than fading. This node carries elevation, and on
+  // Android an elevation shadow is drawn outside its own view's alpha, so an
+  // opacity entrance would show the shadow through the marker for the whole
+  // 400ms. A scale entrance also reads better for something arriving on a map.
+  const appear = useRef(new Animated.Value(reduced ? 1 : 0)).current;
 
   useEffect(() => {
     if (reduced) return;
-    Animated.timing(opacity, {
+    Animated.timing(appear, {
       toValue: 1,
       duration: 400,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
-  }, [opacity, reduced]);
+  }, [appear, reduced]);
+
+  const scale = appear.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
 
   return (
     <Animated.View
@@ -49,7 +55,7 @@ function DriverMarker({ x, y, reduced }: { x: number; y: number; reduced: boolea
         backgroundColor: theme.colors.card,
         alignItems: 'center',
         justifyContent: 'center',
-        opacity,
+        transform: [{ scale }],
         ...theme.shadows.card,
       }}
     >

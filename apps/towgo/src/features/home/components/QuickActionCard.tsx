@@ -1,8 +1,9 @@
 import React from 'react';
-import { Image, Pressable } from 'react-native';
+import { Image } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import type { QuickAction } from '../mocks/quickActions.data';
+import { Pressable } from '@/motion';
 
 export function QuickActionCard({
   action,
@@ -18,18 +19,17 @@ export function QuickActionCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={action.label}
-      style={({ pressed }) => ({
+      style={() => ({
         flex: 1,
         aspectRatio: 79.5 / 86.9,
         backgroundColor: theme.colors.card,
-        borderRadius: 14.5,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: theme.colors.borderSubtle,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
         paddingHorizontal: 4,
-        opacity: pressed ? 0.85 : 1,
         ...theme.shadows.card,
       })}
     >
@@ -38,7 +38,7 @@ export function QuickActionCard({
         weight="medium"
         align="center"
         numberOfLines={2}
-        style={{ fontSize: 9.5, lineHeight: 11.5 }}
+        style={{ fontSize: 10, lineHeight: 14 }}
       >
         {action.label}
       </Text>

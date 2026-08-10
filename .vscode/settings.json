@@ -1,0 +1,49 @@
+{
+  // ── Stop the Java extension importing Gradle projects out of node_modules ──
+  //
+  // This repo has ZERO Java/Kotlin source and ZERO Gradle files of its own.
+  // What the extension finds are ~39 build.gradle files shipped inside
+  // React Native / Expo packages. None of them is a standalone project:
+  //
+  //   · react-native/settings.gradle.kts is its "build from source" file, meant
+  //     to be pulled in via includeBuild() from an app — not opened as a root.
+  //   · expo-modules-core/android/build.gradle is a FRAGMENT; ExpoModuleExtension,
+  //     KotlinCompile, com.android.library and `kotlinVersion` only resolve once
+  //     an Expo app's generated android/ project puts them on the classpath.
+  //
+  // Neither Expo app has an android/ directory — they are managed workflow, and
+  // the first native build is Track B Phase 12 (EAS dev-client). Until then
+  // there is nothing here for Gradle to import, so every attempt fails and
+  // re-fails on each pnpm install (node_modules changes → extension rescans).
+  //
+  // If Phase 12 runs `expo prebuild` and you want IDE support for the generated
+  // android/ project, flip `java.import.gradle.enabled` back to true — the
+  // node_modules exclusion below is what keeps the noise out either way.
+  "java.import.gradle.enabled": false,
+  "java.import.maven.enabled": false,
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.pnpm/**",
+    "**/dist/**",
+    "**/.next/**",
+    "**/.expo/**"
+  ],
+
+  // Keep the file watcher and search off the same trees. On a pnpm monorepo
+  // this is also a real CPU/battery saving, not just noise reduction.
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.expo/**": true,
+    "**/dist/**": true,
+    "**/.turbo/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/.turbo": true,
+    "**/pnpm-lock.yaml": true
+  }
+}

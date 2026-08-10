@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { Clock, User, ChevronDown } from '@/icons';
 import { useBookingStore } from '../store/bookingStore';
+import { Pressable } from '@/motion';
 
 function Pill({
   icon: Icon,
@@ -20,7 +21,7 @@ function Pill({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({
+      style={() => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
@@ -30,7 +31,6 @@ function Pill({
         borderColor: theme.colors.border,
         paddingHorizontal: 12,
         paddingVertical: 8,
-        opacity: pressed ? 0.7 : 1,
         ...theme.shadows.card,
       })}
     >

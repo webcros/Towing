@@ -3,6 +3,8 @@ import { palette } from '../tokens/palette';
 import { spacing } from '../tokens/spacing';
 import { radii } from '../tokens/radii';
 import { typography } from '../tokens/typography';
+import { sizes } from '../tokens/sizes';
+import { motion } from '../tokens/motion';
 import { lightShadows } from '../tokens/shadows';
 import type { Theme } from '../types';
 
@@ -45,6 +47,9 @@ export const lightTheme: Theme = {
     infoSoftBg: '#E7F0FF',
     infoSoftFg: '#1D4ED8',
 
+    heroBg: palette.neutral[900],
+    heroBand: palette.neutral[800],
+
     star: brandConfig.brand.default,
     skeletonBase: palette.neutral[100],
     skeletonHighlight: palette.neutral[150],
@@ -56,6 +61,10 @@ export const lightTheme: Theme = {
   spacing,
   radii,
   typography,
+  sizes,
+  scaleRatio: 1,
+  scale: (dp: number) => dp,
   fonts: brandConfig.fonts,
+  motion,
   shadows: lightShadows,
 };

@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": true,
+    // Inside dist so `deleteOutDir` clears build state atomically with the
+    // output — a buildinfo that outlives its dist produces half-empty builds
+    // (typecheck's --noEmit run must never share this file).
+    "tsBuildInfoFile": "./dist/tsconfig.build.tsbuildinfo"
+  },
+  // `src/scripts` is excluded because those run via tsx from source and pull in
+  // devDependencies (socket.io-client) that must never reach the runtime image.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/test",
+    "src/scripts",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts"
+  ]
+}

@@ -1,0 +1,66 @@
+# Track B Phase 12 — B0 acceptance chain, TowPartner half: login → KYC wizard
+# → 5 documents → submit → status screen shows pending.
+#
+# Login and the KYC status API run entirely against `authMockSource`/
+# `kycMockSource` (no backend, no network) — a fresh mock login always starts
+# at `kycStatus: 'incomplete'` (`resetKycMockState()`), so the root navigator
+# gate routes straight into the wizard, never the tab bar. `123456` is the
+# fixed dev OTP shared by both apps' mock auth sources (see
+# `apps/towgo/maestro/customer-login.yaml`'s header comment for the
+# convention this follows).
+#
+# UNLIKE the login step, the document picker itself is NOT mocked —
+# `useUploadDocument()` calls the real `expo-image-picker` regardless of
+# `env.useMocks` (only the presign/confirm/status/submit network calls are
+# faked). Each of the 5 taps below therefore drives the OS's real photo
+# library UI, which means this flow needs a device/emulator with at least
+# one photo already in its library and the media-library permission
+# pre-granted or grantable — this environment has neither, so these steps
+# are authored and reviewed for correctness, not run. The exact permission
+# and picker screens are OS/version-specific; expect to adjust the `tapOn`
+# targets below once this actually runs against a real emulator profile.
+appId: in.webcros.towpartner
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Drive with TowPartner"
+
+- tapOn: "98765 43210"
+- inputText: "9876543210"
+- tapOn: "Send OTP"
+
+- assertVisible: "Enter the code"
+- tapOn: "••••••"
+- inputText: "123456"
+# OtpScreen auto-submits at 6 digits — no explicit "Verify" tap needed.
+
+# A fresh mock login always has kycStatus: 'incomplete' — the root gate lands
+# on the wizard, not the tab bar.
+- assertVisible: "Verify your account"
+- assertVisible: "Free to join — you keep 90–95%"
+
+# One upload cycle per required document. Each `DocUploadRow` is tappable by
+# its accessibilityLabel ("<Doc Label> — Upload" while unconfirmed).
+- tapOn: "Driving Licence — Upload"
+- runFlow: pick-one-photo.yaml
+- assertVisible: "In review"
+
+- tapOn: "Vehicle RC — Upload"
+- runFlow: pick-one-photo.yaml
+
+- tapOn: "Government ID — Upload"
+- runFlow: pick-one-photo.yaml
+
+- tapOn: "Vehicle Inspection Photo — Upload"
+- runFlow: pick-one-photo.yaml
+
+- tapOn: "Selfie — Upload"
+- runFlow: pick-one-photo.yaml
+
+- tapOn: "Submit for review"
+
+# submit() flips incomplete -> pending and the wizard navigates to the status
+# screen.
+- assertVisible: "Verification Status"
+- assertVisible: "Verification in progress"

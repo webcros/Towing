@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { MapPin, Plus } from '@/icons';
+import { Pressable } from '@/motion';
 
 function ActionButton({
   icon: Icon,
@@ -19,7 +20,7 @@ function ActionButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({
+      style={() => ({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
@@ -30,7 +31,6 @@ function ActionButton({
         borderWidth: 1,
         borderColor: theme.colors.border,
         paddingVertical: 11,
-        opacity: pressed ? 0.7 : 1,
       })}
     >
       <Icon size={16} color={theme.colors.textPrimary} strokeWidth={2} />

@@ -1,8 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTheme } from '@towing/theme';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useDerivedValue,
+  withSpring,
+  interpolate,
+} from 'react-native-reanimated';
+import { useTheme, motion } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { Search, ChevronDown, Headphones } from '@/icons';
 import { SubScreen } from '@/components/SubScreen';
@@ -11,6 +20,78 @@ import { SettingsRow } from '@/components/SettingsRow';
 import { TextField } from '@/components/TextField';
 import { faqs } from '@/features/account/data/faqs.data';
 import type { RootStackParamList } from '@/navigation/types';
+import { Pressable } from '@/motion';
+
+type Faq = (typeof faqs)[number];
+
+/**
+ * One FAQ card.
+ *
+ * `LinearTransition` on the card is what makes the accordion grow and shrink
+ * rather than jump: Reanimated measures the card before and after the answer
+ * mounts and tweens the height difference. The chevron rotation is a spring on
+ * the same state, so the two read as one gesture.
+ */
+function FaqRow({
+  faq,
+  expanded,
+  onToggle,
+}: {
+  faq: Faq;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const theme = useTheme();
+
+  const progress = useDerivedValue(() =>
+    withSpring(expanded ? 1 : 0, theme.motion.spring.snappy),
+  );
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
+  }));
+
+  return (
+    <Animated.View layout={LinearTransition.duration(motion.duration.base)}>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={faq.question}
+        pressScale={theme.motion.pressScale.card}
+        style={{
+          backgroundColor: theme.colors.card,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          padding: 16,
+          gap: expanded ? 10 : 0,
+          ...theme.shadows.card,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text weight="medium" style={{ flex: 1, fontSize: 14, lineHeight: 20 }}>
+            {faq.question}
+          </Text>
+          <Animated.View style={chevronStyle}>
+            <ChevronDown size={18} color={theme.colors.textTertiary} />
+          </Animated.View>
+        </View>
+
+        {expanded ? (
+          <Animated.View
+            entering={FadeIn.duration(motion.duration.fast)}
+            exiting={FadeOut.duration(motion.duration.fast)}
+          >
+            <Text color="secondary" style={{ fontSize: 14, lineHeight: 20 }}>
+              {faq.answer}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export function HelpCenterScreen() {
   const theme = useTheme();
@@ -21,7 +102,9 @@ export function HelpCenterScreen() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return faqs;
-    return faqs.filter((f) => f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q));
+    return faqs.filter(
+      (f) => f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q),
+    );
   }, [query]);
 
   return (
@@ -35,42 +118,14 @@ export function HelpCenterScreen() {
       />
 
       <View style={{ gap: 10 }}>
-        {filtered.map((f) => {
-          const expanded = openId === f.id;
-          return (
-            <Pressable
-              key={f.id}
-              onPress={() => setOpenId(expanded ? null : f.id)}
-              accessibilityRole="button"
-              accessibilityLabel={f.question}
-              style={{
-                backgroundColor: theme.colors.card,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: theme.colors.border,
-                padding: 16,
-                gap: expanded ? 10 : 0,
-                ...theme.shadows.card,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text weight="medium" style={{ flex: 1, fontSize: 14.5, lineHeight: 20 }}>
-                  {f.question}
-                </Text>
-                <ChevronDown
-                  size={18}
-                  color={theme.colors.textTertiary}
-                  style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
-                />
-              </View>
-              {expanded ? (
-                <Text color="secondary" style={{ fontSize: 13.5, lineHeight: 20 }}>
-                  {f.answer}
-                </Text>
-              ) : null}
-            </Pressable>
-          );
-        })}
+        {filtered.map((f) => (
+          <FaqRow
+            key={f.id}
+            faq={f}
+            expanded={openId === f.id}
+            onToggle={() => setOpenId(openId === f.id ? null : f.id)}
+          />
+        ))}
       </View>
 
       <SettingsList>

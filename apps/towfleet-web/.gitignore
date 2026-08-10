@@ -1,0 +1,11 @@
+.next/
+# The mocks-OFF build for the multi-instance rehearsal (docs/rehearsal.md).
+# Separate from .next/ because NEXT_PUBLIC_USE_MOCKS is inlined at build time
+# and the hermetic Playwright suite must keep its mocks-on build intact.
+.next-live/
+out/
+test-results/
+playwright-report/
+next-env.d.ts.bak
+*.tsbuildinfo
+.env*.local

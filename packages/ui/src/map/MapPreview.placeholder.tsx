@@ -133,11 +133,18 @@ export function MapPreviewPlaceholder({
             backgroundColor: theme.colors.fabBg,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: recenterDisabled ? 0.5 : 1,
+            // No alpha here: this node carries elevation, and on Android the
+            // elevation shadow is drawn outside the view's own alpha, so fading
+            // it makes the shadow show through. Dim the glyph instead.
             ...theme.shadows.fab,
           }}
         >
-          {RecenterIcon ? <RecenterIcon size={18} color={theme.colors.textSecondary} /> : null}
+          {RecenterIcon ? (
+            <RecenterIcon
+              size={18}
+              color={recenterDisabled ? theme.colors.textTertiary : theme.colors.textSecondary}
+            />
+          ) : null}
         </Pressable>
       ) : null}
     </View>

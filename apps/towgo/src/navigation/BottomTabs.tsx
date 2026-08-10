@@ -9,6 +9,19 @@ import { ProfileScreen } from '@/screens/profile/ProfileScreen';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+/**
+ * Tab scenes swap instantly — `animation` is left unset, which is v7's `'none'`.
+ *
+ * A cross-dissolve was tried and removed. Bottom-tabs keeps every visited scene
+ * mounted, so fading one out while fading the next in leaves two (or three)
+ * semi-transparent screens stacked for the duration: you could read the Services
+ * headings straight through the Bookings list, and the blended whites showed up
+ * as a grey wash. That is inherent to dissolving between mounted, non-opaque
+ * scenes, not something a different curve or duration fixes.
+ *
+ * All the motion for a tab change lives in the pill in `TabBar.tsx`, which sits
+ * outside the scenes and so can never blend with them.
+ */
 export function BottomTabs() {
   return (
     <Tab.Navigator

@@ -26,6 +26,8 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTabBarSpace } from '@/navigation/DriverTabBar';
 import { useDriverProfile } from '@/features/profile/api/profile.queries';
 import { ProfileHeaderCard } from '@/features/profile/components/ProfileHeaderCard';
+import { useLogout } from '@/features/auth/api/auth.queries';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import type { RootStackParamList } from '@/navigation/types';
 
 export function ProfileScreen() {
@@ -33,6 +35,8 @@ export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabBarSpace = useTabBarSpace();
   const { data, isPending, isError, refetch } = useDriverProfile();
+  const refreshToken = useAuthStore((s) => s.refreshToken);
+  const logout = useLogout();
 
   return (
     <Screen
@@ -61,6 +65,7 @@ export function ProfileScreen() {
             <StatRowCard
               chipSize={44}
               valueSize={17}
+              // Figma 78:930 says 9 -- held at 10, the legibility floor.
               labelSize={10}
               items={[
                 {
@@ -109,16 +114,16 @@ export function ProfileScreen() {
             <MenuRow
               icon={CarFront}
               tone="green"
-              title="My Vehicles"
-              subtitle="Manage your registered vehicles"
-              onPress={() => navigation.navigate('MyVehicles')}
+              title="Capabilities"
+              subtitle="Vehicle class & long-distance jobs"
+              onPress={() => navigation.navigate('Capabilities')}
             />
             <MenuRow
-              icon={FileText}
+              icon={ShieldCheck}
               tone="blue"
-              title="Documents"
-              subtitle="View and update your documents"
-              onPress={() => navigation.navigate('Documents')}
+              title="KYC Verification"
+              subtitle="View your document & verification status"
+              onPress={() => navigation.navigate('KycStatus')}
             />
             <MenuRow
               icon={Wallet}
@@ -168,7 +173,7 @@ export function ProfileScreen() {
               danger
               center
               trailing="none"
-              onPress={() => navigation.navigate('Tabs', { screen: 'Home' })}
+              onPress={() => logout.mutate(refreshToken ?? '')}
             />
           </MenuCard>
         </View>

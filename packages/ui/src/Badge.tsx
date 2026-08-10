@@ -39,7 +39,7 @@ export function Badge({ label, tone = 'neutral' }: BadgeProps) {
         paddingVertical: 3,
       }}
     >
-      <Text variant="micro" weight="semibold" color={text} uppercase>
+      <Text variant="overline" weight="semibold" color={text}>
         {label}
       </Text>
     </View>

@@ -19,7 +19,7 @@ env:
 
 jobs:
   validate:
-    name: Lint, Type-Check, and Test
+    name: Lint and Type-Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -28,7 +28,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 9
+          # Matches `packageManager` in the root package.json. Pinning a
+          # different major here silently resolves a different dependency tree
+          # from the one every developer runs.
+          version: 11.1.2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,6 +47,66 @@ jobs:
 
       - name: Run Type-Check
         run: pnpm run typecheck
+
+  # Added in Phase 8. This job had been NAMED "Lint, Type-Check, and Test" since
+  # the repo began while running no tests at all — so the contract tests, the
+  # ledger invariants and the throttler's multi-instance proof would all have
+  # been decorative on a pull request.
+  test:
+    name: Backend Test Suite
+    runs-on: ubuntu-latest
+
+    # The suite talks to a real Postgres and a real Redis on purpose: 20 of its
+    # ~45 files are supertest e2e specs that boot the whole AppModule, and the
+    # money invariants only mean something against real SQL.
+    services:
+      postgres:
+        # PostGIS, not plain Postgres — the schema uses geography columns.
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: towfleet
+          POSTGRES_PASSWORD: towfleet
+          POSTGRES_DB: towfleet_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U towfleet -d towfleet_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      redis:
+        image: redis:7
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 11.1.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      # The ports match src/test/db.ts's throwaway-stack defaults (5433/6380),
+      # so nothing in the suite needs a CI-specific code path.
+      - name: Run Backend Tests
+        run: pnpm --filter @towing/backend test
 
   # =========================================================================
   # 🛑 DEPLOYMENT JOBS PAUSED TO AVOID AWS BILLING DURING EARLY DEVELOPMENT 🛑

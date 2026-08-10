@@ -30,8 +30,8 @@ function MetaItem({
   const theme = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: shrink }}>
-      <Icon size={13} color={theme.colors.textTertiary} strokeWidth={2} />
-      <Text color="secondary" numberOfLines={1} style={{ fontSize: 12, lineHeight: 16 }}>
+      <Icon size={14} color={theme.colors.textTertiary} strokeWidth={2} />
+      <Text color="secondary" numberOfLines={1} style={{ fontSize: 14, lineHeight: 20 }}>
         {label}
       </Text>
     </View>
@@ -49,34 +49,34 @@ export function JobCard({ job, onPress }: { job: Job; onPress?: () => void }) {
         <IconChip icon={chip.icon} tone={chip.tone} size={44} iconSize={18} />
 
         <View style={{ flex: 1, gap: 4 }}>
-          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 16, lineHeight: 21 }}>
+          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 18, lineHeight: 25 }}>
             {job.vehicleName}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View
-              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: driverColors.onlineDot }}
+              style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: driverColors.onlineDot }}
             />
-            <Text color="secondary" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18, flex: 1 }}>
+            <Text color="secondary" numberOfLines={1} style={{ fontSize: 14, lineHeight: 20, flex: 1 }}>
               {job.pickup}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <MapPin size={11} color={theme.colors.error} strokeWidth={2.4} />
-            <Text color="secondary" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18, flex: 1 }}>
+            <MapPin size={14} color={theme.colors.error} strokeWidth={2.4} />
+            <Text color="secondary" numberOfLines={1} style={{ fontSize: 14, lineHeight: 20, flex: 1 }}>
               {job.drop}
             </Text>
           </View>
         </View>
 
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
-          <Text weight="semibold" tabular style={{ fontSize: 16, lineHeight: 21 }}>
+          <Text weight="semibold" tabular style={{ fontSize: 18, lineHeight: 25 }}>
             {formatINR(job.fare)}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text color="secondary" style={{ fontSize: 12, lineHeight: 16 }}>
+            <Text color="secondary" style={{ fontSize: 15, lineHeight: 22 }}>
               {job.payment === 'cash' ? 'Cash' : 'Online'}
             </Text>
-            <CreditCard size={13} color={theme.colors.textTertiary} strokeWidth={2} />
+            <CreditCard size={15} color={theme.colors.textTertiary} strokeWidth={2} />
           </View>
         </View>
       </View>

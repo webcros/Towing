@@ -20,6 +20,7 @@ export {
   StickyNote,
   Plus,
   Power,
+  RadioTower,
   Heart,
   History,
   X,

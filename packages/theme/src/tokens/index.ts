@@ -2,4 +2,8 @@ export * from './palette';
 export * from './spacing';
 export * from './radii';
 export * from './typography';
+export * from './sizes';
+export * from './reference';
+export * from './scale';
 export * from './shadows';
+export * from './motion';

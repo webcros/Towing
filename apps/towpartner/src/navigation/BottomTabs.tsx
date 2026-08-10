@@ -10,6 +10,16 @@ import { ProfileScreen } from '@/screens/profile/ProfileScreen';
 
 const Tab = createBottomTabNavigator<DriverTabParamList>();
 
+/**
+ * Tab scenes swap instantly — `animation` is left unset, which is v7's 'none'.
+ *
+ * Do not add a scene animation here. Bottom-tabs keeps every visited scene
+ * mounted, so fading one out while fading the next in leaves two or three
+ * semi-transparent screens stacked for the duration; the customer app shipped
+ * exactly that and it read as a grey wash with two screens legible at once.
+ * All the motion for a tab change lives in the bar, which renders outside the
+ * scenes and so can never blend with them.
+ */
 export function BottomTabs() {
   return (
     <Tab.Navigator

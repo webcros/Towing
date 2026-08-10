@@ -3,6 +3,7 @@ import {
   RefreshControl,
   ScrollView,
   View,
+  type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -15,12 +16,30 @@ export type ScreenProps = {
   edges?: readonly Edge[];
   refreshing?: boolean;
   onRefresh?: () => void;
-  /** Rendered above the scroll body (e.g. a persistent OfflineBanner). */
+  /** Rendered above everything (e.g. a persistent OfflineBanner). */
   banner?: React.ReactNode;
+  /**
+   * Fixed bar between the banner and the scroll body. Unlike a header placed
+   * inside `children`, this one does not scroll away — which is what lets a
+   * caller drive it from scroll position.
+   */
+  header?: React.ReactNode;
   /** Pinned below the body (e.g. a sticky CTA). */
   footer?: React.ReactNode;
   background?: 'surface0' | 'card';
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Scroll implementation. Defaults to RN's ScrollView; an app that wants
+   * scroll-linked motion passes its animation library's equivalent. Kept as a
+   * plain component type so this package needs no animation dependency of its
+   * own — see PressableSlot for the same pattern applied to Pressable.
+   */
+  ScrollComponent?: React.ComponentType<ScrollViewProps>;
+  /**
+   * Spread onto the scroller *after* the built-in props, so a caller can supply
+   * `onScroll` / `scrollEventThrottle` / `ref` or override any default.
+   */
+  scrollProps?: Partial<ScrollViewProps>;
 };
 
 export function Screen({
@@ -30,15 +49,18 @@ export function Screen({
   refreshing,
   onRefresh,
   banner,
+  header,
   footer,
   background = 'surface0',
   contentContainerStyle,
+  ScrollComponent = ScrollView,
+  scrollProps,
 }: ScreenProps) {
   const theme = useTheme();
   const backgroundColor = background === 'card' ? theme.colors.card : theme.colors.surface0;
 
   const body = scroll ? (
-    <ScrollView
+    <ScrollComponent
       style={{ flex: 1 }}
       contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
@@ -53,9 +75,10 @@ export function Screen({
           />
         ) : undefined
       }
+      {...scrollProps}
     >
       {children}
-    </ScrollView>
+    </ScrollComponent>
   ) : (
     <View style={[{ flex: 1 }, contentContainerStyle]}>{children}</View>
   );
@@ -63,6 +86,7 @@ export function Screen({
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor }}>
       {banner}
+      {header}
       {body}
       {footer}
     </SafeAreaView>

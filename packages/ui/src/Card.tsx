@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme, type RadiusKey } from '@towing/theme';
+import { usePressablePrimitive } from './PressableSlot';
 
 export type CardProps = {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ export function Card({
   accessibilityLabel,
 }: CardProps) {
   const theme = useTheme();
+  const Pressable = usePressablePrimitive();
 
   const containerStyle: StyleProp<ViewStyle> = [
     {
@@ -41,9 +43,14 @@ export function Card({
     return (
       <Pressable
         onPress={onPress}
+        pressScale={theme.motion.pressScale.card}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
-        style={({ pressed }) => [containerStyle, { opacity: pressed ? 0.9 : 1 }]}
+        // No press opacity: this node carries elevation, and on Android an
+        // elevation shadow is drawn outside its own view's alpha. Fading the
+        // card makes the shadow show through it. MotionPressable already
+        // supplies press feedback via pressScale, so the alpha was redundant.
+        style={containerStyle}
       >
         {children}
       </Pressable>

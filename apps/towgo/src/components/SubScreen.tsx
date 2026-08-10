@@ -1,8 +1,10 @@
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '@towing/theme';
+import { useCollapsingHeader, useHairlineStyle, useHairlineToken } from '@/motion';
 import { ScreenHeader } from './ScreenHeader';
 
 /** Consistent shell for account sub-screens: fixed header + scroll body + optional footer. */
@@ -25,17 +27,27 @@ export function SubScreen({
   const navigation = useNavigation();
   const back = onBack ?? (() => navigation.goBack());
 
+  // No title handoff here: the header title is always visible on these screens,
+  // so there is nothing to hand over. They get the hairline only, which is what
+  // tells you content has passed under the bar.
+  const { scrollY, screenProps } = useCollapsingHeader();
+  const { ScrollComponent, scrollProps } = screenProps;
+  const hairlineStyle = useHairlineStyle(scrollY);
+  const hairlineToken = useHairlineToken();
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <ScreenHeader title={title} onBack={back} right={right} />
-        <ScrollView
+        <Animated.View pointerEvents="none" style={[hairlineToken, hairlineStyle]} />
+        <ScrollComponent
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          {...scrollProps}
         >
           {children}
-        </ScrollView>
+        </ScrollComponent>
         {footer ? (
           <View
             style={{

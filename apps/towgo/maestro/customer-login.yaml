@@ -1,0 +1,40 @@
+# Track B Phase 12 — B0 acceptance chain, TowGo half.
+#
+# Runs entirely against `authMockSource`/the account mock sources (no backend,
+# no network) — the "mocks-on Maestro flows retained as hermetic CI path"
+# requirement. Requires `EXPO_PUBLIC_USE_MOCKS` unset or `true` (the app
+# default) when this build was produced. `123456` is the fixed dev OTP shared
+# by both apps' mock auth sources, matching the convention already used by
+# `apps/towfleet-web`'s Playwright specs (see `e2e/smoke.spec.ts`).
+#
+# No `testID` convention exists in this codebase yet (see ToBeDoneEhsan.md),
+# so every step below matches visible copy or `accessibilityLabel` text
+# instead of an id — Maestro's normal fallback. Reviewed for correctness
+# against the screens as written; not run against a device/emulator — this
+# environment has neither (see the phase's plan doc, "Explicitly out of
+# scope").
+appId: in.webcros.moveyo
+---
+- launchApp:
+    clearState: true
+
+# Splash is a brief hydration flicker (MMKV read); PhoneEntry is the first
+# screen that actually holds still while unauthenticated.
+- assertVisible: "Enter your mobile number"
+
+- tapOn: "98765 43210"
+- inputText: "9876543210"
+- tapOn: "Send OTP"
+
+- assertVisible: "Enter the code"
+- tapOn: "••••••"
+- inputText: "123456"
+# OtpScreen auto-submits at 6 digits — no explicit "Verify" tap needed.
+
+# Fresh install → the DPDP first-run consent overlay is shown before Home.
+- assertVisible: "Before you continue"
+- tapOn: "I Agree"
+
+# Home renders — `HomeHero`'s heading is the most stable marker of the
+# authenticated tab bar having mounted.
+- assertVisible: "Fast Towing,"

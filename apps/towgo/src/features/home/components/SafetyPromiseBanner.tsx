@@ -1,8 +1,9 @@
 import React from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { ChevronRight } from '@/icons';
+import { Pressable } from '@/motion';
 
 const shield = require('@/assets/icons/safety-shield.png');
 
@@ -13,22 +14,21 @@ export function SafetyPromiseBanner({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel="Read our safety guidelines"
-      style={({ pressed }) => ({
+      style={() => ({
         backgroundColor: theme.colors.brandTint,
         borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
-        padding: 14.5,
-        opacity: pressed ? 0.9 : 1,
+        padding: 16,
       })}
     >
       <Image source={shield} resizeMode="contain" style={{ width: 32, height: 32 }} />
       <View style={{ flex: 1, gap: 2 }}>
-        <Text weight="semibold" style={{ fontSize: 13.6, lineHeight: 20 }}>
+        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 22 }}>
           Safe. Reliable. Always.
         </Text>
-        <Text color="tertiary" style={{ fontSize: 10.9, lineHeight: 16, letterSpacing: 0.27 }}>
+        <Text color="tertiary" style={{ fontSize: 12, lineHeight: 18, letterSpacing: 0.3 }}>
           We&apos;re here to get you moving.
         </Text>
       </View>

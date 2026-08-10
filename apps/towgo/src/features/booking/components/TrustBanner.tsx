@@ -24,7 +24,7 @@ export function TrustBanner() {
         <Text weight="semibold" style={{ fontSize: 14, lineHeight: 20 }}>
           Safe. Reliable. Always.
         </Text>
-        <Text color="secondary" style={{ fontSize: 12.5, lineHeight: 17 }}>
+        <Text color="secondary" style={{ fontSize: 13, lineHeight: 19 }}>
           Your safety is our top priority.
         </Text>
       </View>

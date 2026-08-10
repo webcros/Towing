@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { ArrowLeft } from '@/icons';
+import { Pressable } from '@/motion';
 
 /** Consistent back + title header for sub-screens (optional right slot). */
 export function ScreenHeader({
@@ -32,7 +33,6 @@ export function ScreenHeader({
         accessibilityRole="button"
         accessibilityLabel="Go back"
         hitSlop={10}
-        style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
       >
         <ArrowLeft size={24} color={theme.colors.textPrimary} />
       </Pressable>

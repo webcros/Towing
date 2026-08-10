@@ -11,7 +11,7 @@ export function SettingsList({ children }: { children: React.ReactNode }) {
     <View
       style={{
         backgroundColor: theme.colors.card,
-        borderRadius: 16,
+        borderRadius: theme.radii.card,
         borderWidth: 1,
         borderColor: theme.colors.border,
         overflow: 'hidden',

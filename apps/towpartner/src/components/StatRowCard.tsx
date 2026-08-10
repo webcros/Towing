@@ -16,6 +16,8 @@ export type StatItem = {
 export type StatRowCardProps = {
   items: StatItem[];
   chipSize?: number;
+  /** Glyph size inside the chip. Figma uses 16 regardless of chip diameter. */
+  chipIconSize?: number;
   /** Value font size — smaller for 4-up rows (Earnings / Profile). */
   valueSize?: number;
   /** Label font size — 11 on Home, 10 on the tighter Profile row (Figma). */
@@ -28,6 +30,7 @@ export type StatRowCardProps = {
 export function StatRowCard({
   items,
   chipSize = 48,
+  chipIconSize = 16,
   valueSize = 19,
   labelSize = 11,
   dividers = true,
@@ -52,7 +55,7 @@ export function StatRowCard({
             <View style={{ width: 1, backgroundColor: theme.colors.border, marginVertical: 2 }} />
           ) : null}
           <View style={{ flex: 1, alignItems: 'center', gap: 7, paddingHorizontal: 4 }}>
-            <IconChip icon={item.icon} tone={item.tone} size={chipSize} />
+            <IconChip icon={item.icon} tone={item.tone} size={chipSize} iconSize={chipIconSize} />
             <Text
               weight="semibold"
               tabular={item.tabular}

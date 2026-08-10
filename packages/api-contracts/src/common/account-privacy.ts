@@ -1,0 +1,67 @@
+import { z } from 'zod';
+
+/**
+ * §20.4 DPDP — consent capture, account deletion and data export. Dual-realm
+ * (customer AND driver both get these three routes on their own `/v1/me`), so
+ * these live in `common/` per the flat-barrel rule: a name declared in two
+ * realm folders is a build error, same reasoning as `kycStatusSchema`.
+ */
+
+export const consentPolicyTypeSchema = z.enum(['privacy_policy', 'terms_of_service']);
+export type ConsentPolicyType = z.infer<typeof consentPolicyTypeSchema>;
+
+/** `POST /v1/me/consent` — first-run capture, versioned so a policy change can force re-consent later. */
+export const consentRecordRequestSchema = z.object({
+  policyType: consentPolicyTypeSchema,
+  policyVersion: z.string().min(1),
+});
+export type ConsentRecordRequest = z.infer<typeof consentRecordRequestSchema>;
+
+export const consentRecordSchema = z.object({
+  policyType: consentPolicyTypeSchema,
+  policyVersion: z.string(),
+  consentedAt: z.iso.datetime(),
+});
+export type ConsentRecord = z.infer<typeof consentRecordSchema>;
+
+/**
+ * `DELETE /v1/me` request body — a reason is optional, never required to act
+ * on your own data. `.default({})` rather than `.optional()` on the whole
+ * object: a DELETE commonly carries no body at all, which arrives here as
+ * `undefined`, not `{}` — without the default, `ZodValidationPipe` 422s a
+ * perfectly ordinary "delete my account, no reason given" request.
+ */
+export const accountDeletionRequestSchema = z
+  .object({
+    reason: z.string().max(500).optional(),
+  })
+  .default({});
+export type AccountDeletionRequest = z.infer<typeof accountDeletionRequestSchema>;
+
+/**
+ * `DELETE /v1/me` response — files a request; Phase 20's retention/erasure
+ * worker executes it. Not a hard delete here: bookings/ledger rows FK to the
+ * subject and must survive for accounting/audit history.
+ */
+export const accountDeletionResponseSchema = z.object({
+  requestId: z.uuid(),
+  status: z.literal('requested'),
+  requestedAt: z.iso.datetime(),
+});
+export type AccountDeletionResponse = z.infer<typeof accountDeletionResponseSchema>;
+
+/**
+ * `GET /v1/me/export` — sections keyed by resource name so a later phase can
+ * append one without a breaking change. A driver's export has no
+ * vehicles/addresses/emergencyContacts section (those are customer-only
+ * tables) — `undefined` there, not an empty array, so a client can tell
+ * "doesn't apply to this realm" apart from "applies and is empty."
+ */
+export const accountExportResponseSchema = z.object({
+  profile: z.record(z.string(), z.unknown()).nullable(),
+  vehicles: z.array(z.record(z.string(), z.unknown())).optional(),
+  addresses: z.array(z.record(z.string(), z.unknown())).optional(),
+  emergencyContacts: z.array(z.record(z.string(), z.unknown())).optional(),
+  consents: z.array(consentRecordSchema),
+});
+export type AccountExportResponse = z.infer<typeof accountExportResponseSchema>;

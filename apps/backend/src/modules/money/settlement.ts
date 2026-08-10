@@ -1,0 +1,94 @@
+import { commissionPaise, splitPool, type Band } from '@towing/api-contracts';
+
+/**
+ * §14.3 booking settlement, as pure arithmetic: gross → commission → pool →
+ * the ledger legs that get posted.
+ *
+ * **Why the split happens here and not at payout time.** §3.4 and §9.3.7 both
+ * say "split at payout layer" while §14.3 says the fleet split is "two ledger
+ * credits in one transaction". `src/db/seed/seed.ts` — which the phase plan
+ * names as the executable specification — implements the latter, and 755
+ * seeded ledger rows plus the third seed invariant depend on it.
+ *
+ * The two readings reconcile: the split is computed in the *money* layer
+ * (here) rather than in pricing, and a payout draws only the fleet's own
+ * already-split wallet balance. **A payout never re-splits anything.** Moving
+ * the arithmetic to payout time would mean a fleet's wallet held the driver's
+ * money until withdrawal, which is both wrong on the books and unpayable to a
+ * driver who leaves the fleet.
+ *
+ * `commission_debit` is deliberately never produced. The platform has no
+ * wallet, so commission has no counterparty leg — it lives as
+ * `bookings.commission_amount` and by the pool's absence. See the reserved
+ * marker on `walletTxnTypeEnum`.
+ */
+
+export interface SettlementInput {
+  totalPaise: number;
+  band: Band;
+  /** Null for an independent driver — the whole pool is one `fare_credit`. */
+  driverSharePct: number | null;
+}
+
+export type SettlementLegType = 'driver_share_credit' | 'fleet_share_credit' | 'fare_credit';
+
+export interface Settlement {
+  grossPaise: number;
+  commissionPaise: number;
+  poolPaise: number;
+  /** Zero when the driver is independent. */
+  fleetSharePaise: number;
+  driverSharePaise: number;
+  legs: ReadonlyArray<{ owner: 'driver' | 'fleet'; type: SettlementLegType; amountPaise: number }>;
+}
+
+export function computeSettlement(input: SettlementInput): Settlement {
+  const { totalPaise, band, driverSharePct } = input;
+
+  if (!Number.isSafeInteger(totalPaise) || totalPaise < 0) {
+    throw new Error(`Settlement needs a non-negative integer paise total, got ${totalPaise}`);
+  }
+
+  const commission = commissionPaise(totalPaise, band);
+  // §7: "driver net = total − commission (so the two always sum exactly)".
+  const pool = totalPaise - commission;
+
+  if (driverSharePct === null) {
+    return {
+      grossPaise: totalPaise,
+      commissionPaise: commission,
+      poolPaise: pool,
+      fleetSharePaise: 0,
+      driverSharePaise: pool,
+      legs:
+        pool > 0
+          ? [{ owner: 'driver', type: 'fare_credit', amountPaise: pool }]
+          : [],
+    };
+  }
+
+  if (driverSharePct < 0 || driverSharePct > 100) {
+    throw new Error(`driverSharePct must be 0..100, got ${driverSharePct}`);
+  }
+
+  const { driverPaise, fleetPaise } = splitPool(pool, driverSharePct);
+
+  // A zero leg is dropped, not written: `ck_wallet_transactions_amount_nonzero`
+  // rejects it, and a 100%-driver-share fleet legitimately produces one.
+  const legs: Array<Settlement['legs'][number]> = [];
+  if (driverPaise > 0) {
+    legs.push({ owner: 'driver', type: 'driver_share_credit', amountPaise: driverPaise });
+  }
+  if (fleetPaise > 0) {
+    legs.push({ owner: 'fleet', type: 'fleet_share_credit', amountPaise: fleetPaise });
+  }
+
+  return {
+    grossPaise: totalPaise,
+    commissionPaise: commission,
+    poolPaise: pool,
+    fleetSharePaise: fleetPaise,
+    driverSharePaise: driverPaise,
+    legs,
+  };
+}

@@ -6,23 +6,39 @@ import { MapPreview } from '@towing/ui';
 import { MapPin, Truck } from '@/icons';
 
 /**
- * Rounded map card with a stylized route: driver tow-truck (top-right) → pickup
+ * Map with a stylized route: driver tow-truck (top-right) → pickup
  * pin (bottom-left). Static until real Google Maps + live driver location.
+ *
+ * `fullBleed` drops the card chrome and fills the parent instead. The route Svg
+ * uses a viewBox with preserveAspectRatio="none" and both markers are
+ * positioned in percentages, so everything reflows to the new box on its own.
  */
-export function TrackingMapCard() {
+export function TrackingMapCard({ fullBleed = false }: { fullBleed?: boolean } = {}) {
   const theme = useTheme();
 
   return (
     <View
-      style={{
-        height: 340,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        overflow: 'hidden',
-        backgroundColor: theme.colors.card,
-        ...theme.shadows.card,
-      }}
+      style={
+        fullBleed
+          ? {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              overflow: 'hidden',
+              backgroundColor: theme.colors.card,
+            }
+          : {
+              height: 340,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              overflow: 'hidden',
+              backgroundColor: theme.colors.card,
+              ...theme.shadows.card,
+            }
+      }
     >
       <MapPreview style={StyleSheet.absoluteFill} showRecenter={false} />
 

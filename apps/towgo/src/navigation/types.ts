@@ -14,6 +14,14 @@ export type RootTabParamList = {
 };
 
 export type RootStackParamList = {
+  /** Shown once at boot while `authStore.hydrate()` reads the persisted session. */
+  Splash: undefined;
+  // Auth (spec §9.1.1) — rendered instead of Tabs while unauthenticated.
+  PhoneEntry: undefined;
+  Otp: { challengeId: string; mobile: string; resendAfterSeconds: number };
+  /** Pushed once, only when the just-verified identity has `isNew: true`. */
+  ProfileSetup: undefined;
+
   Tabs: NavigatorScreenParams<RootTabParamList> | undefined;
   /** Step 1 — enter pickup / drop, schedule, for-whom. */
   BookLocation: undefined;
@@ -35,4 +43,7 @@ export type RootStackParamList = {
   HelpCenter: undefined;
   ContactUs: undefined;
   Settings: undefined;
+  EmergencyContacts: undefined;
+  AddEmergencyContact: undefined;
+  Legal: undefined;
 };

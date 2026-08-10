@@ -1,44 +1,8 @@
-import type { IconComponent } from '@towing/ui';
-
-export type UserProfile = {
-  name: string;
-  phone: string;
-  email: string;
-};
-
-export type AccountMenuItemId =
-  | 'personal_info'
-  | 'vehicles'
-  | 'saved_locations'
-  | 'payment_methods'
-  | 'notifications'
-  | 'help_center'
-  | 'contact_us'
-  | 'settings';
-
-export type AccountMenuItem = {
-  id: AccountMenuItemId;
-  title: string;
-  subtitle: string;
-  icon: IconComponent;
-};
-
-export type VehicleType = 'wheel_lift' | 'flatbed';
-export type Vehicle = {
-  id: string;
-  type: VehicleType;
-  makeModel: string;
-  plate: string;
-  color: string;
-};
-
-export type LocationKind = 'home' | 'work' | 'other';
-export type SavedLocation = {
-  id: string;
-  kind: LocationKind;
-  label: string;
-  address: string;
-};
+/**
+ * Profile, vehicle and saved-address shapes now come from `@towing/api-contracts`
+ * (`CustomerProfile`, `SavedVehicle`/`VehicleCategory`, `SavedAddress`) — the
+ * backend's `/me` API is the single source of truth for them as of Phase 12.
+ */
 
 export type PaymentKind = 'card' | 'upi' | 'wallet';
 export type PaymentMethod = {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { Camera, ShieldCheck, Phone, Mail, ChevronRight } from '@/icons';
@@ -8,6 +8,7 @@ import { Pill } from '@/components/Pill';
 import { HeroCard } from '@/components/HeroCard';
 import { driverColors } from '@/theme/driverColors';
 import type { DriverProfile } from '../types';
+import { Pressable } from '@/motion';
 
 const AVATAR = 85;
 
@@ -26,8 +27,10 @@ function ContactRow({
 }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-      <IconChip icon={icon} tone="blue" size={36} iconSize={15} />
+      <IconChip icon={icon} tone="blue" size={40} iconSize={14} />
       <View style={{ flex: 1 }}>
+        {/* Figma 78:930 sets these at 9.5 and 8.3 -- below the 10dp legibility floor,
+            so they stay at 13/11. See the note at the top of this file. */}
         <Text weight="medium" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>
           {value}
         </Text>
@@ -55,11 +58,10 @@ export function ProfileHeaderCard({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel="Edit profile"
-        style={({ pressed }) => ({
+        style={() => ({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 14,
-          opacity: pressed ? 0.9 : 1,
         })}
       >
         {/* Avatar in a cream ring, photo anchored to the bottom (Figma crop). */}

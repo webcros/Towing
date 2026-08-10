@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { useBookingStore } from '../store/bookingStore';
+import { Pressable } from '@/motion';
 
 /** Read-only pickup→drop summary shown on Step 2; tap to go back and edit. */
 export function LocationSummaryBar({ onEdit }: { onEdit: () => void }) {
@@ -15,7 +16,7 @@ export function LocationSummaryBar({ onEdit }: { onEdit: () => void }) {
       onPress={onEdit}
       accessibilityRole="button"
       accessibilityLabel="Edit locations"
-      style={({ pressed }) => ({
+      style={() => ({
         flex: 1,
         backgroundColor: theme.colors.card,
         borderRadius: 14,
@@ -26,7 +27,6 @@ export function LocationSummaryBar({ onEdit }: { onEdit: () => void }) {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        opacity: pressed ? 0.85 : 1,
         ...theme.shadows.card,
       })}
     >
@@ -47,11 +47,11 @@ export function LocationSummaryBar({ onEdit }: { onEdit: () => void }) {
       </View>
 
       <View style={{ flex: 1, gap: 6 }}>
-        <Text weight="medium" numberOfLines={1} style={{ fontSize: 13.5, lineHeight: 18 }}>
+        <Text weight="medium" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>
           {pickup || 'Pickup location'}
         </Text>
         <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-        <Text weight="medium" numberOfLines={1} style={{ fontSize: 13.5, lineHeight: 18 }}>
+        <Text weight="medium" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>
           {drop || 'Drop location'}
         </Text>
       </View>

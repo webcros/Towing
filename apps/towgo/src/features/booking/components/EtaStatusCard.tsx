@@ -25,7 +25,7 @@ export function EtaStatusCard({ etaMinutes }: { etaMinutes: number }) {
       <Image source={truck} resizeMode="contain" style={{ width: 74, height: 48 }} />
 
       <View style={{ flex: 1 }}>
-        <Text weight="semibold" style={{ fontSize: 15.5, lineHeight: 21, color: theme.colors.success }}>
+        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 21, color: theme.colors.success }}>
           Driver is on the way
         </Text>
         <Text color="secondary" style={{ fontSize: 13, lineHeight: 18 }}>
@@ -37,7 +37,7 @@ export function EtaStatusCard({ etaMinutes }: { etaMinutes: number }) {
         <Text weight="bold" tabular style={{ fontSize: 28, lineHeight: 32 }}>
           {etaMinutes}
         </Text>
-        <Text color="secondary" style={{ fontSize: 12.5, lineHeight: 16 }}>
+        <Text color="secondary" style={{ fontSize: 13, lineHeight: 17 }}>
           min
         </Text>
       </View>

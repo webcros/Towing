@@ -1,6 +1,8 @@
 import { spacing } from './tokens/spacing';
 import { radii } from './tokens/radii';
 import { typography } from './tokens/typography';
+import { sizes } from './tokens/sizes';
+import { motion } from './tokens/motion';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -51,6 +53,12 @@ export type ColorTokens = {
   infoSoftBg: string;
   infoSoftFg: string;
 
+  /** Dark hero surface. Stays dark in both themes — it is a deliberate
+   *  high-contrast block, not an inverse-of-the-page surface. */
+  heroBg: string;
+  /** Band inside the hero, one step lighter so it separates without a border. */
+  heroBand: string;
+
   // Accents / misc
   star: string;
   skeletonBase: string;
@@ -76,7 +84,14 @@ export type Theme = {
   spacing: typeof spacing;
   radii: typeof radii;
   typography: typeof typography;
+  sizes: typeof sizes;
+  /** Viewport / REFERENCE_WIDTH, clamped. 1 at 390dp. */
+  scaleRatio: number;
+  /** Scale a one-off dp literal to the viewport. Prefer a token where one exists. */
+  scale: (dp: number) => number;
   fonts: Record<FontWeightKey, string>;
+  /** Durations, easing curves and spring configs. Deliberately not viewport-scaled. */
+  motion: typeof motion;
   shadows: {
     card: Shadow;
     fab: Shadow;

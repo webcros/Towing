@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@towing/theme';
+import { usePressablePrimitive } from './PressableSlot';
 import { Text } from './Text';
 import type { IconComponent } from './types';
 
@@ -20,6 +21,7 @@ export function SectionHeader({
   style,
 }: SectionHeaderProps) {
   const theme = useTheme();
+  const Pressable = usePressablePrimitive();
 
   return (
     <View
@@ -28,13 +30,14 @@ export function SectionHeader({
         style,
       ]}
     >
-      <Text variant="label" color="primary">
+      <Text variant="overline" color="primary">
         {title}
       </Text>
 
       {actionLabel ? (
         <Pressable
           onPress={onAction}
+          pressScale={theme.motion.pressScale.row}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={actionLabel}

@@ -34,3 +34,9 @@ yarn-error.*
 # macOS / editors
 .DS_Store
 *.pem
+
+# Local status docs for Ehsan — kept out of the repo on purpose
+/OVERVIEW.md
+/Detailed-Overview.md
+/SETUP-CHECKLIST.md
+/ToBeDoneEhsan.md

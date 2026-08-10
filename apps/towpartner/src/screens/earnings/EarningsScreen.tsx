@@ -48,23 +48,22 @@ export function EarningsScreen() {
         ) : (
           <>
             {isPending || !data ? (
-              <Skeleton width="100%" height={150} radius={24} />
+              <Skeleton width="100%" height={151} radius={16} />
             ) : (
               <TotalEarningsCard summary={data.summary} />
             )}
 
-            <FilterTabs options={PERIODS} value={period} onChange={setPeriod} />
+            <FilterTabs options={PERIODS} value={period} onChange={setPeriod} labelSize={12} />
 
             {/* Earnings Summary */}
             <View style={{ gap: 12 }}>
               <SectionHeading title="Earnings Summary" />
               {isPending || !data ? (
-                <Skeleton width="100%" height={120} radius={16} />
+                <Skeleton width="100%" height={126} radius={16} />
               ) : (
                 <StatRowCard
                   chipSize={44}
-                  valueSize={15}
-                  dividers={false}
+                  valueSize={16}
                   items={[
                     {
                       icon: Wallet,
@@ -84,7 +83,7 @@ export function EarningsScreen() {
                       icon: IndianRupee,
                       tone: 'blue',
                       value: formatINR(data.summary.avgPerJob),
-                      label: 'Avg Per Job',
+                      label: 'Avg. Per Job',
                       tabular: true,
                     },
                     {
@@ -103,7 +102,7 @@ export function EarningsScreen() {
             <View style={{ gap: 12 }}>
               <SectionHeading title="Earnings Trend" actionLabel="View Report ›" />
               {isPending || !data ? (
-                <Skeleton width="100%" height={190} radius={16} />
+                <Skeleton width="100%" height={235} radius={16} />
               ) : (
                 <EarningsTrendChart points={data.trend} />
               )}

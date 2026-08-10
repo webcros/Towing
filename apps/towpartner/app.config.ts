@@ -46,6 +46,14 @@ const config: ExpoConfig = {
         },
       },
     ],
+    [
+      'expo-image-picker',
+      {
+        // Phase 12 KYC wizard — picking the 5 required documents from the
+        // photo library.
+        photosPermission: 'TowPartner needs photo library access so you can upload your KYC documents.',
+      },
+    ],
   ],
   extra: {
     // Toggle mock data source vs the (future) real REST backend.

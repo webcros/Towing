@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen, Text, ErrorState, EmptyState, OfflineBanner } from '@towing/ui';
@@ -13,6 +13,7 @@ import { OfferCard, OfferCardSkeleton } from '@/features/offers/components/Offer
 import { driverColors } from '@/theme/driverColors';
 import { formatCountdown } from '@/utils/format';
 import type { RootStackParamList } from '@/navigation/types';
+import { Pressable } from '@/motion';
 
 const INK = '#111827';
 
@@ -86,7 +87,7 @@ export function NewJobScreen() {
               onPress={() => setLocationEnabled(true)}
               accessibilityRole="button"
               accessibilityLabel="Enable location"
-              style={({ pressed }) => ({
+              style={() => ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -94,7 +95,6 @@ export function NewJobScreen() {
                 backgroundColor: driverColors.amber,
                 borderRadius: 11,
                 paddingVertical: 11,
-                opacity: pressed ? 0.9 : 1,
               })}
             >
               <LocateFixed size={15} color={INK} strokeWidth={2.2} />
