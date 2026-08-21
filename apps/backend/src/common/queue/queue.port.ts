@@ -46,6 +46,76 @@ export interface JobPayloads {
    * does and cannot outlive the process that scheduled it.
    */
   'payouts.dev-settle': { payoutId: string; providerRef: string };
+  /**
+   * §12.3's fan-out. One job per event: resolve recipients, write the delivery
+   * rows, then enqueue one `notifications.deliver.*` per row.
+   */
+  'notifications.fanout': { eventId: string };
+  /**
+   * ONE JOB NAME PER CHANNEL, which — given one BullMQ queue per job name —
+   * means one queue per channel. That is the point: a 400-truck compliance
+   * sweep flooding the email queue must not delay a KYC push, and each channel
+   * gets its own retry budget because "SMS provider is down" and "APNs is slow"
+   * are unrelated failures.
+   */
+  'notifications.deliver.push': { deliveryId: string };
+  'notifications.deliver.sms': { deliveryId: string };
+  'notifications.deliver.whatsapp': { deliveryId: string };
+  'notifications.deliver.email': { deliveryId: string };
+  /**
+   * Asks Expo what actually happened to a batch of tickets.
+   *
+   * Expo's send endpoint returns a TICKET, not an outcome; `DeviceNotRegistered`
+   * — the only signal that an app was uninstalled and its token is dead —
+   * arrives minutes later from `getReceipts`. Without this job stale tokens are
+   * never pruned and every "the device self-heals" claim is false.
+   */
+  'notifications.push-receipts': { deliveryIds: string[] };
+  /**
+   * Repairs what a crash between a commit and an enqueue strands: events with
+   * no `fanned_out_at` and deliveries still `queued` past their grace window.
+   */
+  'notifications.sweep': { reason: 'cron' | 'manual' };
+
+  /**
+   * §6 progressive-radius search for one booking (Phase 15 enqueues, Phase 17
+   * searches).
+   *
+   * DURABLE AND SINGLE-OWNER, which is the whole reason it is a queue job and
+   * not an in-process timer: N Fargate tasks each running their own
+   * `setTimeout` would double-offer a fare-locked booking, and a task recycling
+   * mid-search would drop it silently with the customer still watching a radar
+   * animation.
+   *
+   * Carries the booking id and NOTHING ELSE — no radius ladder, no deadline.
+   * Those live on the zone (`service_zones.dispatch_config`) and the booking
+   * row, and a snapshot taken at confirm would be a second source of truth that
+   * an admin's §6.7 edit could not reach.
+   *
+   * RE-ENTRANT AND SELF-SCHEDULING as of Phase 17: each run does exactly one
+   * rung of the §6.4 ladder and enqueues its own successor, so a task that dies
+   * mid-search loses at most that wave — the booking row still knows where it
+   * got to, and the next job resumes from there.
+   */
+  'dispatch.search': { bookingId: string };
+
+  /**
+   * §6.3's twenty-second offer expiry (Phase 17).
+   *
+   * THE JOB THAT MAKES DOUBLE-ASSIGNMENT IMPOSSIBLE, and the reason it is a
+   * queue job is worth stating plainly: an in-process `setTimeout` lives on ONE
+   * Fargate task. That task recycles during a deploy, an autoscale event, or a
+   * crash — and the offer it was holding is then never expired, so the driver's
+   * lock never releases and the booking waits out its whole deadline against a
+   * driver who stopped looking at their phone twenty seconds in.
+   *
+   * IDEMPOTENT AND SINGLE-ATTEMPT. It fires against an offer that may already
+   * have been accepted, rejected or revoked; `OfferService.expire` only moves a
+   * row still marked `offered`, so every one of those is a no-op. `attempts: 1`
+   * because retrying an expiry buys nothing — the offer is either resolved
+   * already or the next wave passes over it regardless.
+   */
+  'dispatch.offer-timeout': { bookingId: string; driverId: string; wave: number };
 }
 
 export type JobName = keyof JobPayloads;
@@ -98,4 +168,17 @@ export interface QueuePort {
 
   /** Snapshot for `/v1/health` and the depth alarm. */
   stats(): Promise<QueueStats[]>;
+
+  /**
+   * Fires once per job that has exhausted every attempt — i.e. per job that
+   * has just landed in the DLQ (`removeOnFail: false`).
+   *
+   * It exists because the alternative is counting dead letters from a domain
+   * table's own `attempts` column, which increments on EVERY invocation: an
+   * operator retrying a dead-lettered job would increment it again and the
+   * §12.3 depth alarm would be measuring something other than what it claims.
+   * BullMQ already knows `attemptsMade >= opts.attempts` in its `failed`
+   * handler, so this surfaces the fact rather than re-deriving it.
+   */
+  onDeadLetter(listener: (job: JobName, jobId: string, error: string) => void): void;
 }

@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env';
+import { ExternalCallPolicy } from '../../common/http/external-call.policy';
 import { parseRazorpayPayoutWebhook } from './dev-payout.adapter';
 import { verifyWebhookSignature } from './webhook-signature';
 import {
@@ -26,7 +27,10 @@ export class RazorpayRouteAdapter implements PayoutProviderPort, OnModuleInit {
 
   private readonly logger = new Logger(RazorpayRouteAdapter.name);
 
-  constructor(@Inject(ENV) private readonly env: Env) {}
+  constructor(
+    @Inject(ENV) private readonly env: Env,
+    private readonly policy: ExternalCallPolicy,
+  ) {}
 
   /**
    * ⚠ Credentials are validated HERE, not in the constructor. Nest instantiates
@@ -129,13 +133,28 @@ export class RazorpayRouteAdapter implements PayoutProviderPort, OnModuleInit {
   }
 
   /**
-   * One HTTP helper. `AbortSignal.timeout` rather than an un-bounded fetch:
-   * §19.3 requires "timeouts, bounded retries with jitter, circuit breakers",
-   * and a vendor call that hangs forever is what turns a slow provider into a
-   * pool exhaustion incident. Retries stay OUT of here on purpose — the callers
-   * (the payout request path, the reconciliation poll) already know the
-   * difference between "failed" and "unknown", and a blind retry inside the
-   * adapter would double-send a payout.
+   * One HTTP helper, through §19.3's `ExternalCallPolicy` since Phase 14.
+   *
+   * It used to call `fetch` with a bare `AbortSignal.timeout`. Phase 13 built
+   * the policy and deliberately did NOT migrate this adapter, leaving a note
+   * that it belonged with Phase 14 "where the second consumer actually
+   * appears". Two things change by moving:
+   *
+   *  - a CIRCUIT BREAKER and per-vendor metrics, which `AbortSignal.timeout`
+   *    cannot provide. §19.2's "Razorpay down → bookings complete as
+   *    COMPLETED (unpaid)" needs something that NOTICES, and that something is
+   *    the breaker;
+   *  - the timeout becomes a RACE rather than an abort. Phase 13 found that a
+   *    callee ignoring the signal — or a `fetch` already reading a body —
+   *    resolves normally long after the deadline, parking the caller for
+   *    exactly as long as the timeout was meant to prevent.
+   *
+   * `attempts: 1` KEEPS THE ORIGINAL, CORRECT DECISION. Retries stay out of
+   * here — the callers (the payout request path, the reconciliation poll)
+   * already know the difference between "failed" and "unknown", and a blind
+   * retry inside the adapter would DOUBLE-SEND A PAYOUT. The policy gives us
+   * the breaker without the retry ladder; that pairing is why its `attempts`
+   * defaults to 1.
    */
   private async call<T>(
     method: 'GET' | 'POST',
@@ -147,26 +166,34 @@ export class RazorpayRouteAdapter implements PayoutProviderPort, OnModuleInit {
       `${this.env.RAZORPAY_KEY_ID}:${this.env.RAZORPAY_KEY_SECRET}`,
     ).toString('base64');
 
-    const response = await fetch(`${this.env.RAZORPAY_BASE_URL}${path}`, {
-      method,
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json',
-        ...(idempotencyKey ? { 'X-Payout-Idempotency': idempotencyKey } : {}),
+    return this.policy.run<T>(
+      { vendor: this.name, attempts: 1, timeoutMs: this.env.RAZORPAY_TIMEOUT_MS },
+      async (signal) => {
+        const response = await fetch(`${this.env.RAZORPAY_BASE_URL}${path}`, {
+          method,
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/json',
+            ...(idempotencyKey ? { 'X-Payout-Idempotency': idempotencyKey } : {}),
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          signal,
+        });
+
+        const text = await response.text();
+
+        if (!response.ok) {
+          // The message is logged and stored on `payouts.failure_reason`, so it
+          // must not carry the request body — that would put an account number
+          // in a log.
+          throw new Error(
+            `Razorpay ${method} ${path} failed (${response.status}): ${text.slice(0, 300)}`,
+          );
+        }
+
+        return JSON.parse(text) as T;
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: AbortSignal.timeout(this.env.RAZORPAY_TIMEOUT_MS),
-    });
-
-    const text = await response.text();
-
-    if (!response.ok) {
-      // The message is logged and stored on `payouts.failure_reason`, so it must
-      // not carry the request body — that would put an account number in a log.
-      throw new Error(`Razorpay ${method} ${path} failed (${response.status}): ${text.slice(0, 300)}`);
-    }
-
-    return JSON.parse(text) as T;
+    );
   }
 }
 

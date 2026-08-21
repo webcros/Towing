@@ -8,6 +8,7 @@ import { loadEnv } from '../../config/env';
 import { runComplianceSweep } from '../../modules/compliance/compliance-sweep';
 import { rebuildEarnings } from '../../modules/money/earnings-projector';
 import { hashPassword } from '../../modules/auth/password';
+import { digest } from '../../modules/auth/otp.util';
 import { ledgerInvariants } from '../ledger/invariants';
 import type { LatLng } from '../geography';
 import type * as schema from '../schema';
@@ -15,7 +16,11 @@ import {
   adminUsers,
   bookingStatusHistory,
   bookings,
+  chargeConfig,
+  commissionConfig,
+  commissionConfigHistory,
   complianceDocuments,
+  dispatchConfig,
   driverDocuments,
   drivers,
   fleetDriverShares,
@@ -25,7 +30,9 @@ import {
   payments,
   payoutAccounts,
   payouts,
+  pricingRules,
   serviceZones,
+  services,
   users,
   walletTransactions,
   wallets,
@@ -36,7 +43,9 @@ import {
   FLEETS,
   FLEET_DRIVERS,
   INDEPENDENT_DRIVER,
+  SERVICE_CATALOG,
   SERVICE_MIX,
+  STANDALONE_ZONES,
   TRUCKS,
   SEED_PASSWORD,
   centroid,
@@ -44,10 +53,12 @@ import {
   type DriverFixture,
   type FleetFixture,
 } from './fixtures';
+import type { SurgeBand } from '@towing/api-contracts';
+import { DEFAULT_PRICING_RULES } from '../../modules/pricing/pricing.math';
 import {
   BAND_PCT,
-  baseFarePaise,
   commissionPaise,
+  computeFare,
   createRng,
   pick,
   resolveBand,
@@ -98,7 +109,17 @@ const APP_TABLES = [
   // Before `admin_users`: an audit row references the admin who wrote it, and
   // although CASCADE resolves the order anyway, the list reads as the graph.
   'admin_actions',
+  // Notification spine (Phase 13). Deliveries and inbox rows both cascade from
+  // notification_events, but listing them keeps the reset explicit.
+  'notification_deliveries',
+  'notifications',
+  'notification_events',
   'devices',
+  // Phase 12's DPDP tables were missing from this list — a reset left consent
+  // and deletion rows behind, so a re-seeded database still believed the old
+  // users had consented.
+  'consent_records',
+  'deletion_requests',
   'truck_imports',
   'webhook_events',
   'earnings_daily',
@@ -126,6 +147,15 @@ const APP_TABLES = [
   'fleet_owner_credentials',
   'fleets',
   'service_zones',
+  // Phase 14 config. `commission_config_history` before `commission_config`
+  // and `admin_users` for the same reason `admin_actions` is listed early:
+  // CASCADE would resolve it, but the list reads as the graph.
+  'commission_config_history',
+  'commission_config',
+  'charge_config',
+  'dispatch_config',
+  'pricing_rules',
+  'services',
   'saved_vehicles',
   'addresses',
   'emergency_contacts',
@@ -190,10 +220,22 @@ function jitter(rng: () => number, point: LatLng, spreadDeg = 0.012): LatLng {
   };
 }
 
-function otpCode(rng: () => number): string {
-  return Math.floor(rng() * 1_000_000)
+/**
+ * A deterministic 6-digit booking OTP, HASHED before it is stored.
+ *
+ * The seed used to write the plaintext code into `bookings.booking_otp`. That
+ * column is `booking_otp_hash` since migration 0012 and takes the same SHA-256
+ * digest `login_challenges.code_hash` has always used — the seed produces
+ * realistic rows, not a plaintext credential store.
+ *
+ * `rng`, not `generateOtp()`: seeded data must stay reproducible, and the
+ * digest is what production reads either way.
+ */
+function otpCodeHash(rng: () => number): string {
+  const code = Math.floor(rng() * 1_000_000)
     .toString()
     .padStart(6, '0');
+  return digest(code);
 }
 
 /**
@@ -379,13 +421,112 @@ export async function runSeed(
       });
       summary.payoutAccounts += 1;
 
+      // Phase 14: `surgeBand`, `isHighway` and `dispatchConfig` all come from
+      // the fixture now. Before this, every zone was inserted with
+      // `surgeBand: 'standard'` hard-coded, `is_highway` left false and
+      // `dispatch_config` left NULL — so the §7.4 highway and surge paths and
+      // the whole §6.7 override mechanism had no seeded row to exercise them.
       const [zone] = await tx
         .insert(serviceZones)
-        .values({ name: fleet.zone.name, area: fleet.zone.wkt, surgeBand: 'standard' })
+        .values({
+          name: fleet.zone.name,
+          area: fleet.zone.wkt,
+          surgeBand: fleet.zone.surgeBand ?? 'standard',
+          isHighway: fleet.zone.isHighway ?? false,
+          dispatchConfig: fleet.zone.dispatchConfig ?? null,
+        })
         .returning({ id: serviceZones.id });
 
       fleetByKey.set(fleet.key, { id: fleetRow!.id, zoneId: zone!.id, fixture: fleet });
       summary.fleets += 1;
+    }
+
+    // ── Phase 14: platform configuration ────────────────────────────────────
+    //
+    // Everything §6.7 and §16.5 call tunable, seeded with its launch value.
+    // Before this the §7 matrix was a `const` in this directory and the §6.2
+    // scorer weights did not exist anywhere.
+
+    // Standalone zones — a highway corridor belongs to no fleet, so it could not
+    // exist while zones were only created inside the per-fleet loop above. It is
+    // what makes the §7.4 highway surcharge reachable, and it deliberately
+    // overlaps Bengaluru Metro so `ZoneResolverService`'s precedence rule has
+    // something real to resolve.
+    for (const fixture of STANDALONE_ZONES) {
+      await tx.insert(serviceZones).values({
+        name: fixture.name,
+        area: fixture.wkt,
+        surgeBand: fixture.surgeBand ?? 'standard',
+        isHighway: fixture.isHighway ?? false,
+        dispatchConfig: fixture.dispatchConfig ?? null,
+      });
+    }
+
+    // Appendix B's nine entries over six `service_type` values.
+    await tx.insert(services).values(
+      SERVICE_CATALOG.map((service, index) => ({
+        slug: service.slug,
+        serviceType: service.serviceType,
+        defaultVehicleClass: service.defaultVehicleClass,
+        name: service.name,
+        description: service.description,
+        requiresDrop: service.requiresDrop,
+        displayOrder: index,
+      })),
+    );
+
+    // §7.1/§7.2/§7.3 as rows. `DEFAULT_PRICING_RULES` is the same constant the
+    // engine falls back to, so a seeded database and an unseeded one price
+    // identically — the table is what makes the numbers EDITABLE, not what makes
+    // them correct.
+    const ruleRows: Array<typeof pricingRules.$inferInsert> = [];
+    for (const vehicleClass of ['wheel_lift', 'flatbed'] as const) {
+      for (const slab of DEFAULT_PRICING_RULES.slabs[vehicleClass]) {
+        ruleRows.push({
+          ruleKind: 'slab',
+          vehicleClass,
+          maxKm: slab.maxKm.toFixed(2),
+          price: toRupees(slab.pricePaise),
+        });
+      }
+    }
+    for (const band of DEFAULT_PRICING_RULES.longDistance) {
+      ruleRows.push({
+        ruleKind: 'long_distance',
+        // §7.3 is titled "Long-Distance Flatbed" and §3.3 Band C is "Flatbed
+        // hauling" — the class is not a variable here.
+        vehicleClass: 'flatbed',
+        maxKm: band.maxKm.toFixed(2),
+        price: toRupees(band.pricePaise),
+        priceMax: toRupees(band.priceMaxPaise ?? band.pricePaise),
+      });
+    }
+    for (const [serviceType, farePaise] of Object.entries(DEFAULT_PRICING_RULES.roadside)) {
+      ruleRows.push({
+        ruleKind: 'roadside',
+        serviceType: serviceType as ServiceType,
+        price: toRupees(farePaise),
+      });
+    }
+    await tx.insert(pricingRules).values(ruleRows);
+
+    // §7.4 and §6.2 — one row each, column defaults carry the launch values.
+    await tx.insert(chargeConfig).values({});
+    await tx.insert(dispatchConfig).values({});
+
+    // §3.3 bands, plus a genesis history row per band. The history table is
+    // append-only and `old_pct` is nullable precisely for these three: they had
+    // nothing before them, and a history that starts at the first EDIT cannot
+    // answer "what was it at launch".
+    for (const band of ['A', 'B', 'C'] as const) {
+      await tx.insert(commissionConfig).values({ band, pct: BAND_PCT[band].toFixed(2) });
+      await tx.insert(commissionConfigHistory).values({
+        band,
+        oldPct: null,
+        newPct: BAND_PCT[band].toFixed(2),
+        changedBy: null,
+        reason: 'Seeded launch default (§3.3)',
+      });
     }
 
     // ── Trucks + compliance documents ───────────────────────────────────────
@@ -622,6 +763,11 @@ export async function runSeed(
       status: string,
       createdAt: Date,
       activeDriver?: SeededDriver,
+      /**
+       * Forces the customer. Only the live rows pass it, and they must: see
+       * `uq_bookings_one_active_per_user` below.
+       */
+      forcedCustomerId?: string,
     ): void => {
       const fleet = fleetKey ? fleetByKey.get(fleetKey)! : null;
       const areas = fleet?.fixture.areas ?? FLEETS[0]!.areas;
@@ -646,25 +792,49 @@ export async function runSeed(
       }
       distanceKm = Math.round(distanceKm * 10) / 10;
 
-      const basePaise = baseFarePaise(service, vehicleClass, distanceKm, rng);
       const hour = createdAt.getHours();
-      const nightPaise = hour >= 22 || hour < 6 ? Math.round(basePaise * 0.15) : 0;
       const band: Band = resolveBand(service, distanceKm);
-      const highwayPaise =
-        band === 'B' && rng() < 0.6 ? (500 + Math.floor(rng() * 6) * 100) * 100 : 0;
-      const accidentPaise = service === 'accident_recovery' ? 150_000 : 0;
-      const waitingPaise = rng() < 0.2 ? Math.floor(5 + rng() * 25) * 500 : 0;
-      const surgePaise = rng() < 0.15 ? Math.round(basePaise * (0.1 + rng() * 0.15)) : 0;
-      const discountPaise = rng() < 0.1 ? (100 + Math.floor(rng() * 3) * 100) * 100 : 0;
 
-      const totalPaise =
-        basePaise +
-        nightPaise +
-        highwayPaise +
-        accidentPaise +
-        waitingPaise +
-        surgePaise -
-        discountPaise;
+      // THE RNG PICKS THE SCENARIO; THE ENGINE PRICES IT (Phase 14).
+      //
+      // Before, this block re-implemented §7's arithmetic inline — including a
+      // surge computed on the base alone, which §7.5's third worked example
+      // contradicts, and a highway surcharge drawn randomly between ₹500 and
+      // ₹1,000 per booking. A rate is configuration, not a property of one
+      // booking: it now comes from `charge_config`'s defaults via
+      // `computeFare`, and the RNG only decides WHICH bookings were at night,
+      // on a highway, surged or kept waiting.
+      //
+      // This is what makes the Phase 14 golden-file test meaningful: re-pricing
+      // a seeded row through the live engine reproduces its stored fare because
+      // they are the same function, not because they were checked once.
+      const isHighwayPickup = band === 'B' && rng() < 0.6;
+      const waitingMinutes = rng() < 0.2 ? 15 + Math.floor(5 + rng() * 25) : 0;
+      const surgeBand: SurgeBand =
+        rng() < 0.15 ? (rng() < 0.5 ? 'high' : 'peak') : 'standard';
+      const requestedDiscountPaise = rng() < 0.1 ? (100 + Math.floor(rng() * 3) * 100) * 100 : 0;
+
+      const fare = computeFare({
+        service,
+        vehicleClass,
+        distanceKm,
+        hourOfDay: hour,
+        isHighwayPickup,
+        surgeBand,
+        waitingMinutes,
+        discountPaise: requestedDiscountPaise,
+      });
+
+      const {
+        basePaise,
+        nightPaise,
+        highwayPaise,
+        accidentPaise,
+        waitingPaise,
+        surgePaise,
+        discountPaise,
+        totalPaise,
+      } = fare;
       const commission = commissionPaise(totalPaise, band);
       const poolPaise = totalPaise - commission;
 
@@ -693,7 +863,7 @@ export async function runSeed(
           : 0;
 
       bookingRows.push({
-        userId: pick(rng, customerRows).id,
+        userId: forcedCustomerId ?? pick(rng, customerRows).id,
         driverId: driver?.id ?? null,
         fleetId: fleet?.id ?? null,
         zoneId: fleet?.zoneId ?? fleetByKey.get('lakshmi')!.zoneId,
@@ -723,7 +893,7 @@ export async function runSeed(
         commissionPct: BAND_PCT[band].toFixed(2),
         commissionAmount: progressed || settled ? toRupees(commission) : '0.00',
         driverPayout: progressed || settled ? toRupees(poolPaise) : '0.00',
-        bookingOtp: driver ? otpCode(rng) : null,
+        bookingOtpHash: driver ? otpCodeHash(rng) : null,
         otpVerified: progressed,
         cancelledBy: status === 'cancelled' ? (cancelledByDriver ? 'driver' : 'customer') : null,
         cancellationReason:
@@ -781,7 +951,16 @@ export async function runSeed(
       ['chr', 'in_progress'],
     ];
     const liveDrivers = new Set<string>();
-    for (const [key, status] of liveStatuses) {
+    // ONE ACTIVE BOOKING PER CUSTOMER (§3.8) is a partial UNIQUE index as of
+    // migration 0012, so the six live rows must land on six DIFFERENT customers.
+    //
+    // They used to take `pick(rng, customerRows)` like every other booking. With
+    // 20 customers and 6 draws that is a better-than-even chance of a collision
+    // — it passed only because the fixed RNG happened to miss, and any edit to
+    // an earlier random draw (Phase 14 made several) would have shifted the
+    // stream and turned `pnpm db:reset` into a constraint violation. Walking the
+    // list makes it a property of the seed rather than of the seed value.
+    liveStatuses.forEach(([key, status], index) => {
       const candidates = seededDrivers.filter((d) => d.fleetKey === key && !liveDrivers.has(d.id));
       const driver = candidates[0] ?? seededDrivers.find((d) => d.fleetKey === key)!;
       liveDrivers.add(driver.id);
@@ -790,8 +969,9 @@ export async function runSeed(
         status,
         new Date(now.getTime() - (10 + Math.floor(rng() * 40)) * MINUTE_MS),
         driver,
+        customerRows[index % customerRows.length]!.id,
       );
-    }
+    });
 
     const bookingIds: string[] = [];
     await insertChunked(

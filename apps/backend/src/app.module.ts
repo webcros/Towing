@@ -12,8 +12,10 @@ import { TenantThrottlerGuard } from './common/throttling/tenant-throttler.guard
 import { ThrottlingModule } from './common/throttling/throttling.module';
 import { throttlerOptions } from './common/throttling/throttler.config';
 import { CacheModule } from './common/cache/cache.module';
+import { KillSwitchModule } from './common/killswitch/killswitch.module';
 import { FleetEventsModule } from './common/events/fleet-events.module';
 import { QueueModule } from './common/queue/queue.module';
+import { ExternalCallModule } from './common/http/external-call.module';
 import { NotificationsModule } from './common/notifications/notifications.module';
 import { StorageModule } from './common/storage/storage.module';
 import { ConfigModule } from './config/config.module';
@@ -21,17 +23,25 @@ import { ENV, type Env } from './config/env';
 import { DbModule } from './db/db.module';
 import { LedgerModule } from './db/ledger/ledger.module';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
+import { AdminConfigModule } from './modules/admin-config/admin-config.module';
 import { AdminDriversModule } from './modules/admin-drivers/admin-drivers.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthPublicModule } from './modules/auth-public/auth-public.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DriverKycModule } from './modules/driver-kyc/driver-kyc.module';
+import { DriverPresenceModule } from './modules/driver-presence/driver-presence.module';
+import { DispatchModule } from './modules/dispatch/dispatch.module';
+import { DriversNearbyModule } from './modules/drivers-nearby/drivers-nearby.module';
+import { PlacesModule } from './modules/places/places.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MeModule } from './modules/me/me.module';
+import { NotificationCentreModule } from './modules/notification-centre/notification-centre.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 import { MoneyModule } from './modules/money/money.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { TrucksModule } from './modules/trucks/trucks.module';
@@ -56,22 +66,32 @@ import { RedisModule } from './redis/redis.module';
       useFactory: (env: Env, storage: RedisThrottlerStorage) => throttlerOptions(env, storage),
     }),
     CacheModule,
+    KillSwitchModule,
     FleetEventsModule,
     QueueModule,
     StorageModule,
+    ExternalCallModule,
     NotificationsModule,
     AuthModule,
     AuthPublicModule,
     AdminAuthModule,
     AdminDriversModule,
+    AdminConfigModule,
     TrucksModule,
     DriversModule,
     DriverKycModule,
+    DriverPresenceModule,
+    DriversNearbyModule,
+    DispatchModule,
+    PlacesModule,
     FilesModule,
     DashboardModule,
     ComplianceModule,
     JobsModule,
     MeModule,
+    NotificationCentreModule,
+    PricingModule,
+    BookingsModule,
     MoneyModule,
     SettingsModule,
     WebhooksModule,

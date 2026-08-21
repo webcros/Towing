@@ -1,6 +1,6 @@
 # 05 — Security Model & Networking
 
-**Audience:** the AWS engineer deploying the Towing platform (Phase 9 of `docs/TowFleet-Implementation-Plan.md`).
+**Audience:** the AWS engineer deploying the Towing platform (Phase 9 — **9a staging** first, then 9b — of `docs/TowFleet-Implementation-Plan-V2.md`; V1 is superseded).
 **Scope:** the fleet-console auth realm and everything the application already enforces at the code level, plus the AWS network/secrets topology the spec commits to. Every claim below is verified against the repo files listed in the footer; anything genuinely undecided is in [§12 Decisions needed](#12-decisions-needed-from-the-aws-engineer).
 
 **The five things that will bite you if skipped:**
@@ -17,7 +17,7 @@
 
 ## 1. Auth architecture — the fleet realm
 
-Spec §15.2 defines separate auth realms per console. Only the **fleet** realm is implemented so far (fleet-owner web console). The `refresh_tokens` table carries a `realm` column so admin/driver/customer realms can share the same tables later; a fleet token presented against another realm is rejected (`token.service.ts`, `jwt-auth.guard.ts`).
+Spec §15.2 defines separate auth realms per console. This section documents the **fleet** realm in detail. Since Phase 10 **all four realms are implemented** — customer and driver (phone + OTP, from the mobile apps), fleet (email + password + OTP) and admin (password + OTP with four sub-roles and an audit log). They share the `refresh_tokens` table via its `realm` column, and a token presented against another realm is rejected without burning the refresh family (`token.service.ts`, `jwt-auth.guard.ts`). Nothing below changes for the other realms; there are simply more of them, and mobile clients now hold bearer tokens directly rather than going through the console's cookie/BFF model.
 
 ### 1.1 Login flow (two steps, §16.4)
 
@@ -164,7 +164,7 @@ All backend env is parsed once at boot by a zod schema (`src/config/env.ts`); a 
 |---|---|---|---|---|
 | **MSG91** | Auth key + **DLT template IDs** | TBD | Unknown | **HIGH — India DLT registration is a WEEKS-long lead item**; start it before any launch date is set. Blocks all production logins |
 | **Razorpay** | Key id/secret, webhook secret, **Route activation + KYC** | TBD | Unknown | Medium — needed by Phase 7 (money); Route/KYC approval has its own lead time |
-| **Google Maps** | API keys — **mobile apps only** | TBD | Unknown | **None for this deployment** — TowGo/TowPartner are out of scope, and the fleet console's map is **MapLibre**, not Google Maps |
+| **Google Maps** | API keys — **mobile apps only** | TBD | Unknown | **None for this deployment** — the keys are consumed by TowGo/TowPartner, which you do not deploy, and the fleet console's map is **MapLibre**, not Google Maps. (The backend gains a server-side Distance Matrix caller in Phase 14; not your phase.) |
 
 ### 4.3 Non-secret config (→ SSM parameters or plain task-def env)
 

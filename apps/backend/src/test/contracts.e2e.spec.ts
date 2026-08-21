@@ -1,6 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import {
   alertsListResponseSchema,
+  bookingListResponseSchema,
+  serviceCatalogResponseSchema,
   dashboardSummarySchema,
   driversListResponseSchema,
   earningsSummarySchema,
@@ -15,8 +17,9 @@ import {
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { authHeaderFor, createTestApp } from '../test/app';
+import { authHeaderFor, createTestApp, customerAuthHeaderFor } from '../test/app';
 import {
+  seedCustomer,
   seedDriver,
   seedFleet,
   seedPayoutAccount,
@@ -27,6 +30,7 @@ import {
 import { seedBooking, seedTruck, seedWalletWithLedger } from '../test/fixtures';
 import { closeTestRedis } from '../test/redis';
 import { expectMatchesContract } from './contracts';
+import { seedPricingFixtures } from '../modules/pricing/pricing.e2e.spec';
 
 /**
  * Every fleet read endpoint, asserted against the schema its client parses.
@@ -48,9 +52,14 @@ describe('response contracts', () => {
   let app: INestApplication;
   let db: TestDatabase;
   let auth: string;
+  let customerAuth: string;
   let fleetId: string;
 
-  const ROUTES: Array<{ path: string; schema: z.ZodType }> = [
+  /**
+   * `realm` selects which token the request carries. Absent means fleet — the
+   * only realm this table covered until Phase 14 added customer read routes.
+   */
+  const ROUTES: Array<{ path: string; schema: z.ZodType; realm?: 'fleet' | 'customer' }> = [
     { path: '/v1/fleet/dashboard', schema: dashboardSummarySchema },
     { path: '/v1/fleet/trucks', schema: trucksListResponseSchema },
     { path: '/v1/fleet/drivers', schema: driversListResponseSchema },
@@ -66,6 +75,11 @@ describe('response contracts', () => {
     { path: `/v1/fleet/reports?groupBy=truck&${RANGE}`, schema: reportResponseSchema },
     { path: `/v1/fleet/reports?groupBy=driver&${RANGE}`, schema: reportResponseSchema },
     { path: `/v1/fleet/reports?groupBy=period&${RANGE}`, schema: reportResponseSchema },
+    // Phase 14 — the customer realm's first entry in this table.
+    { path: '/v1/services', schema: serviceCatalogResponseSchema, realm: 'customer' },
+    // Phase 15. Seeded with a real trip below — an empty list matches almost
+    // any schema, which is what makes an unseeded row in this table worthless.
+    { path: '/v1/bookings', schema: bookingListResponseSchema, realm: 'customer' },
   ];
 
   beforeAll(async () => {
@@ -83,6 +97,13 @@ describe('response contracts', () => {
     const driverId = await seedDriver(db, { fleetId });
     await seedBooking(db, { userId: fleet.ownerId, fleetId, driverId, status: 'paid' });
     await seedPayoutAccount(db, fleetId);
+
+    // Phase 14's customer-realm row needs a customer token and a populated
+    // catalogue — an empty `services` list would match its schema vacuously.
+    const contractCustomer = await seedCustomer(db);
+    customerAuth = await customerAuthHeaderFor(app, { userId: contractCustomer });
+    await seedPricingFixtures(db);
+    await seedBooking(db, { userId: contractCustomer, status: 'paid' });
     await seedWalletWithLedger(db, { ownerType: 'fleet', ownerId: fleetId }, [
       { type: 'fleet_share_credit', amount: '5000.00' },
     ]);
@@ -97,7 +118,7 @@ describe('response contracts', () => {
     it(`GET ${route.path} matches its contract`, async () => {
       const res = await request(app.getHttpServer())
         .get(route.path)
-        .set('Authorization', auth)
+        .set('Authorization', route.realm === 'customer' ? customerAuth : auth)
         .expect(200);
 
       expectMatchesContract(route.schema, res.body);
@@ -112,9 +133,14 @@ describe('response contracts', () => {
    * the routes Express actually registered and demands each one be accounted
    * for — either covered, or explicitly excluded with a reason.
    */
-  it('covers every registered fleet GET route', () => {
+  it('covers every registered fleet and customer GET route', () => {
+    // Phase 14 widened this beyond `/v1/fleet/`. The guard was fleet-only
+    // because the fleet console was the only client; `GET /v1/services` is the
+    // first customer read with a published contract, and leaving the walk
+    // fleet-scoped would have meant every future TowGo route was uncovered by
+    // default — a ratchet that stops ratcheting.
     const registered = registeredGetPaths(app).filter(
-      (path) => path.startsWith('/v1/fleet/') && !EXCLUDED.has(path),
+      (path) => isCovered(path) && !EXCLUDED.has(path),
     );
 
     // Without this the guard is worthless: if Express ever moves its router
@@ -129,6 +155,18 @@ describe('response contracts', () => {
     expect(uncovered).toEqual([]);
   });
 });
+
+/** Realms whose GET routes this table is responsible for. */
+const COVERED_PREFIXES = ['/v1/fleet', '/v1/services', '/v1/me', '/v1/bookings'];
+
+/**
+ * Segment-aware, NOT `startsWith`. A bare prefix test matched `/v1/metrics`
+ * against `/v1/me` and dragged the Prometheus scrape endpoint — which serves
+ * text, not a DTO — into a table of JSON contracts.
+ */
+function isCovered(path: string): boolean {
+  return COVERED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
 
 /**
  * Routes with no response schema, named individually so the guard cannot be
@@ -149,6 +187,29 @@ const EXCLUDED = new Set([
   '/v1/fleet/trucks/bulk/:importId',
   // Session identity, asserted in the auth specs.
   '/v1/fleet/auth/me',
+  // ── A REAL GAP, NAMED RATHER THAN HIDDEN ────────────────────────────────
+  // Phase 14 widened this guard's walk past `/v1/fleet/`, and it immediately
+  // surfaced these nine: every one has a behaviour spec in `modules/me`, and
+  // not one of them asserts its response against a published schema. They are
+  // excluded so the guard can protect everything else, and listed individually
+  // so the debt is countable. Backfilling them is Phase 12's contract coverage,
+  // not Phase 14's — but it is now impossible to add a TENTH uncovered
+  // customer route without this list growing in the diff.
+  '/v1/me',
+  '/v1/me/vehicles',
+  '/v1/me/addresses',
+  '/v1/me/emergency-contacts',
+  '/v1/me/export',
+  '/v1/me/notifications',
+  '/v1/me/notifications/unread-count',
+  '/v1/me/notification-prefs',
+  '/v1/me/consent',
+  // Parameterised customer reads. This table's paths are static, so a route
+  // needing a real booking id cannot appear in it; both are contract-asserted
+  // with `expectMatchesContract` in `bookings-read.e2e.spec.ts` and
+  // `booking-otp.e2e.spec.ts`.
+  '/v1/bookings/:id',
+  '/v1/bookings/:id/otp',
   // Development-only OTP echo (`AUTH_DEV_OTP_ECHO`, and production refuses to
   // boot with it set). It has no contract schema ON PURPOSE: publishing one in
   // `@towing/api-contracts` would advertise to every client a route that must

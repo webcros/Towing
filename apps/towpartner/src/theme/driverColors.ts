@@ -1,5 +1,5 @@
 /**
- * TowPartner accent palette.
+ * MiTow Partner accent palette.
  *
  * The driver app reuses the shared @towing/theme for everything structural
  * (surfaces, text, borders, spacing, radii, typography, shadows, the amber
@@ -59,12 +59,6 @@ export const driverColors = {
 
 export type ChipTone = keyof typeof driverColors.chip;
 
-/**
- * Job / transaction outcome → soft pill colours + label. Keyed by `JobStatus`
- * (defined in the jobs feature, the domain owner of the status vocabulary).
- */
-export const JOB_STATUS_META = {
-  completed: { bg: '#DCFCE7', fg: '#16A34A', label: 'Completed' },
-  cancelled: { bg: '#FEE2E2', fg: '#DC2626', label: 'Cancelled' },
-  assigned: { bg: '#DBEAFE', fg: '#2563EB', label: 'Assigned' },
-} as const;
+// The job-status → label/tone/icon map lives in `features/jobs/statusMeta.ts`,
+// the domain owner of that vocabulary. A partial copy used to sit here and
+// covered only 3 of the contract's 10 statuses.

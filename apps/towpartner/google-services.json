@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "862212201092",
+    "project_id": "mitow-27c3b",
+    "storage_bucket": "mitow-27c3b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862212201092:android:839716a5bdb87602e040d1",
+        "android_client_info": {
+          "package_name": "in.mitow.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDM-xH5qu3oOsNnh_KcmoCRClbKtbVIxwM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862212201092:android:fa76faefb22fda24e040d1",
+        "android_client_info": {
+          "package_name": "in.mitow.partner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDM-xH5qu3oOsNnh_KcmoCRClbKtbVIxwM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

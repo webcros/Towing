@@ -139,6 +139,39 @@ describe('seed (deterministic dataset + §14 invariants)', () => {
     expect(unapproved).toBe(0);
   });
 
+  it('seeds a fleet-affiliated, truck-assigned, approved driver (Phase 16 acceptance)', async () => {
+    /**
+     * PINNED BECAUSE THE PHASE-16 ACCEPTANCE CRITERION IS UNREACHABLE WITHOUT IT.
+     *
+     * "The fleet map shows a real driver" requires a driver whose ping the fleet
+     * fan-out can translate, and that needs all three of: an approved KYC state,
+     * a `fleet_id`, and an `assigned_truck_id`. An independent driver — which is
+     * exactly what Phase 12's self-signup creates — has the last two null by
+     * construction and correctly produces no fleet fan-out at all.
+     *
+     * The seed already produces these as a side effect of its truck-assignment
+     * loop. This asserts it, so a future change to that loop fails here rather
+     * than silently making a cross-surface criterion untestable.
+     */
+    const fanoutCapable = await count(sql`
+      select count(*)::int as count
+      from drivers
+      where kyc_status = 'approved'
+        and fleet_id is not null
+        and assigned_truck_id is not null
+    `);
+    expect(fanoutCapable).toBeGreaterThan(0);
+
+    // ...and the other half of the pair, so both branches of the adapter have a
+    // fixture: an approved driver who belongs on no fleet map.
+    const independent = await count(sql`
+      select count(*)::int as count
+      from drivers
+      where kyc_status = 'approved' and fleet_id is null
+    `);
+    expect(independent).toBeGreaterThan(0);
+  });
+
   it('seeded console credentials verify with the documented password', async () => {
     const rows = (await db.execute(sql`
       select email, password_hash from fleet_owner_credentials order by email

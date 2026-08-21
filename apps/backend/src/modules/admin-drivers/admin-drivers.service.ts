@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   AdminCapabilitiesResponse,
   AdminCapabilitiesUpdate,
@@ -10,12 +10,15 @@ import type {
 } from '@towing/api-contracts';
 import { and, asc, eq } from 'drizzle-orm';
 import { ApiException } from '../../common/errors/api-exception';
+import { DeviceRegistryService } from '../../common/notifications/device-registry.service';
+import { NotificationService } from '../../common/notifications/notification.service';
 import { keyFromFileUrl } from '../../common/storage/file-url';
 import { STORAGE, type StoragePort } from '../../common/storage/storage.port';
 import { DB, type Database } from '../../db/db.module';
 import { driverDocuments, drivers } from '../../db/schema';
 import type { KycStatus } from '../auth/auth.types';
 import { TokenService, type SessionContext } from '../auth/token.service';
+import { DriverPresenceService } from '../driver-presence/driver-presence.service';
 import { AdminAuditService } from '../admin-auth/admin-audit.service';
 
 /** Where each driver-level decision lands. */
@@ -43,11 +46,16 @@ const THUMBNAIL_TTL_SECONDS = 5 * 60;
  */
 @Injectable()
 export class AdminDriversService {
+  private readonly logger = new Logger(AdminDriversService.name);
+
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly audit: AdminAuditService,
     private readonly tokens: TokenService,
     @Inject(STORAGE) private readonly storage: StoragePort,
+    private readonly notifications: NotificationService,
+    private readonly deviceRegistry: DeviceRegistryService,
+    private readonly presence: DriverPresenceService,
   ) {}
 
   async decide(
@@ -59,6 +67,7 @@ export class AdminDriversService {
     const [before] = await this.db
       .select({
         id: drivers.id,
+        name: drivers.name,
         kycStatus: drivers.kycStatus,
         rejectionReason: drivers.rejectionReason,
         approvedBy: drivers.approvedBy,
@@ -108,9 +117,39 @@ export class AdminDriversService {
       ? await this.tokens.revokeSubject(driverId, 'driver', `kyc_${body.decision}`)
       : 0;
 
+    // Devices are revoked alongside sessions for SUSPENSION only (invariant 73).
+    // A push token outlives the session on its handset, and a suspended driver
+    // must stop receiving anything at all.
+    //
+    // NOT for `reject`: the rejection push has to reach the very phone that is
+    // about to be told why it was rejected, and revoking first would silently
+    // drop it. That token is cleared by the driver's own logout, or replaced on
+    // the next registration.
+    if (status === 'suspended') {
+      await this.deviceRegistry.revokeAllForSubject('driver', driverId, 'kyc_suspended');
+    }
+
+    /**
+     * ...and the same immediacy for SUPPLY (Phase 16).
+     *
+     * Revoking sessions and devices stops the driver ACTING; it does not remove
+     * them from §6.1's candidate store, which is keyed in Redis and knows
+     * nothing about tokens. A suspended driver left in a GEO set is phantom
+     * supply: dispatch scores them, locks an offer against them, and waits out
+     * the timeout while the customer's search widens for no reason.
+     *
+     * `evictRevoked` swallows its own failures — the ping path re-checks approval
+     * whenever it rehydrates, and the hot hash expires in 30s regardless, so the
+     * worst case here is a delayed eviction rather than a permanent one. An
+     * admin's recorded decision must not fail because Redis blinked.
+     */
+    if (revokesAuthority) {
+      await this.presence.evictRevoked(driverId);
+    }
+
     // Written after the mutation and awaited, not fire-and-forget: an audit row
     // that can silently go missing is worse than none, because it is trusted.
-    await this.audit.record({
+    const auditId = await this.audit.record({
       adminId,
       action: `driver.kyc.${body.decision}`,
       subjectType: 'driver',
@@ -121,6 +160,37 @@ export class AdminDriversService {
       ip: context.ip ?? null,
       userAgent: context.userAgent ?? null,
     });
+
+    // §9.4.3's AC: "action triggers driver notification (Push+SMS+WhatsApp)".
+    // Until Phase 13 this sent nothing at all, and the driver learned their fate
+    // by opening the app and pulling to refresh.
+    //
+    // THE APPROVAL PATH IS THE ONE THAT MATTERS and it is deliberately not
+    // fighting the revocation above: `revokesAuthority` covers only `suspended`
+    // and `rejected`, so an approved driver's session is fully intact and the
+    // push can drive an in-place refetch that unlocks the online toggle.
+    //
+    // Best-effort. A notification failure must never undo a recorded decision —
+    // and `emit` only writes rows and enqueues, so a provider outage cannot
+    // reach this far anyway.
+    const NOTIFY_EVENT: Partial<Record<AdminKycDecision['decision'], string>> = {
+      approve: 'driver.kyc.approved',
+      reject: 'driver.kyc.rejected',
+      request_info: 'driver.kyc.request_info',
+    };
+    const event = NOTIFY_EVENT[body.decision];
+    if (event) {
+      try {
+        await this.notifications.emit(event, {
+          driverId,
+          driverName: before.name,
+          reason: body.reason ?? null,
+          auditId,
+        });
+      } catch (error) {
+        this.logger.warn(`kyc ${body.decision} notification failed: ${String(error)}`);
+      }
+    }
 
     return {
       driverId,

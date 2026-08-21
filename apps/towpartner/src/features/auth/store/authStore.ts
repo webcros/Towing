@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { DriverSession } from '@towing/api-contracts';
 import { storage } from '@/lib/storage/storage';
+import { stop as stopLocationCapture } from '@/lib/location/driverLocationService';
+import { clearLocationState } from '@/lib/location/pingBuffer';
+import { disconnectDriverSocket } from '@/lib/realtime/driverSocket';
 import type { DriverIdentity } from '../types';
 
 type AuthStatus = 'hydrating' | 'authenticated' | 'unauthenticated';
@@ -121,6 +124,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearSession: () => {
     storage.delete(SESSION_KEY);
+    /**
+     * Location capture stops and its buffer is dropped (Phase 16).
+     *
+     * A buffered fix carries no session binding of its own — it replays under
+     * whoever is signed in when connectivity returns. On a shared handset, one
+     * driver's trail flushed under the next driver's token would attribute the
+     * first driver's movements to the second, in `booking_location_path`, which
+     * is trip evidence. The same reasoning `clearQueuedMutations` already
+     * applies to the mutation queue.
+     *
+     * Fire and forget: `stop()` awaits a final flush that will fail (the token
+     * is already gone), and a logout must not wait on the network to complete.
+     */
+    void stopLocationCapture();
+    clearLocationState();
+    disconnectDriverSocket();
+
     set({
       status: 'unauthenticated',
       accessToken: null,

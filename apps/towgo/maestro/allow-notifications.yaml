@@ -1,0 +1,41 @@
+# Track B Phase 13 — accepting the push permission.
+#
+# Split out of `customer-login.yaml` because the OS prompt can be answered only
+# ONCE per install: a single flow cannot both decline and accept, and the
+# login flow declines so it stays deterministic.
+#
+# ⚠ OS-VERSION-SPECIFIC, and never executed. The Android 13+ runtime
+# notification prompt says "Allow"; iOS says "Allow" too but under a different
+# system dialog. Both branches are conditional so the flow does not fail on the
+# platform that shows the other one — the same shape `pick-one-photo.yaml`
+# already uses for the media-library prompt.
+appId: in.mitow.customer
+---
+- launchApp:
+    clearState: true
+
+# Same login steps as customer-login.yaml (kept in sync with the single-screen
+# LoginScreen since the Figma 38:2 redesign).
+- assertVisible: "Welcome"
+- tapOn: "Enter mobile number"
+- inputText: "9876543210"
+- tapOn: "Send OTP"
+- assertVisible: "Enter the code"
+- tapOn: "One-time code"
+- inputText: "123456"
+
+- assertVisible: "Before you continue"
+- tapOn: "I Agree"
+
+# The priming sheet — our own screen, not the OS.
+- assertVisible: "Know when your driver arrives"
+- tapOn: "Turn on notifications"
+
+# The OS prompt, which the sheet triggers.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+
+- assertVisible: "Fast Towing,"

@@ -31,7 +31,7 @@ import { DetailRow, RowDivider } from '@/components/DetailRow';
 import { BookingDetailSkeleton } from '@/features/bookings/components/BookingDetailSkeleton';
 import { PAYMENT_LABEL } from '@/features/bookings/labels';
 import { towTypes } from '@/features/booking/data/towTypes.data';
-import { formatEta, formatINR } from '@/utils/format';
+import { formatEta, formatPaise } from '@/utils/format';
 import type { BookingsStackParamList, RootStackParamList } from '@/navigation/types';
 
 /**
@@ -107,31 +107,44 @@ export function BookingDetailsScreen() {
 
           <RowDivider />
           <DetailRow icon={Truck} label="Tow type" value={`${towName} tow truck`} />
-          <RowDivider />
-          <DetailRow
-            icon={Clock}
-            label="Duration"
-            value={formatEta(data.durationMinutes)}
-            tabular
-          />
-          <RowDivider />
-          <DetailRow
-            icon={Route}
-            label="Distance"
-            value={`${data.distanceKm} km`}
-            tabular
-          />
-          <RowDivider />
-          <DetailRow
-            icon={IndianRupee}
-            label="Payment"
-            value={PAYMENT_LABEL[data.paymentMethod]}
-          />
+          {/*
+            Duration, distance and payment are unknown until the trip has run —
+            a searching booking legitimately has none of them. An omitted row
+            reads better than "null km", and §10.9's feedback states are about
+            not pretending to know things.
+          */}
+          {data.durationMinutes !== null ? (
+            <>
+              <RowDivider />
+              <DetailRow
+                icon={Clock}
+                label="Duration"
+                value={formatEta(data.durationMinutes)}
+                tabular
+              />
+            </>
+          ) : null}
+          {data.distanceKm !== null ? (
+            <>
+              <RowDivider />
+              <DetailRow icon={Route} label="Distance" value={`${data.distanceKm} km`} tabular />
+            </>
+          ) : null}
+          {data.paymentMethod ? (
+            <>
+              <RowDivider />
+              <DetailRow
+                icon={IndianRupee}
+                label="Payment"
+                value={PAYMENT_LABEL[data.paymentMethod]}
+              />
+            </>
+          ) : null}
           <RowDivider />
           <DetailRow
             icon={Receipt}
-            label="Total paid"
-            value={formatINR(data.fare)}
+            label={data.status === 'paid' ? 'Total paid' : 'Total'}
+            value={formatPaise(data.farePaise)}
             strong
             tabular
           />

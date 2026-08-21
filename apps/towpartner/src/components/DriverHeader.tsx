@@ -4,7 +4,11 @@ import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { Menu, ArrowLeft, Bell } from '@/icons';
 import { driverColors } from '@/theme/driverColors';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Pressable } from '@/motion';
+import { useUnreadCount } from '@/features/notifications/api/notifications.queries';
+import type { RootStackParamList } from '@/navigation/types';
 
 export type DriverHeaderProps = {
   title: string;
@@ -13,7 +17,7 @@ export type DriverHeaderProps = {
   leading?: 'menu' | 'back';
   onLeading?: () => void;
   showBell?: boolean;
-  /** Show the unread dot on the bell. */
+  /** Force the unread dot on. Omit and the header reads the real unread count. */
   bellBadge?: boolean;
   onBell?: () => void;
   /** Greeting screens use 22; single-word titles use the default 26. */
@@ -30,12 +34,19 @@ export function DriverHeader({
   leading = 'menu',
   onLeading = noop,
   showBell = true,
-  bellBadge = false,
-  onBell = noop,
+  bellBadge,
+  onBell,
   titleSize = 26,
   subtitleSize = 13,
 }: DriverHeaderProps) {
   const theme = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Six screens render this header; they all read one shared cache entry.
+  const unread = useUnreadCount();
+  const showDot = bellBadge ?? (unread.data?.unread ?? 0) > 0;
+  // Phase 13 wires it. Until now every call site passed nothing and the bell
+  // opened a PlaceholderScreen.
+  const openBell = onBell ?? (() => navigation.navigate('Notifications'));
   const LeadingIcon = leading === 'back' ? ArrowLeft : Menu;
 
   return (
@@ -81,7 +92,7 @@ export function DriverHeader({
 
       {showBell ? (
         <Pressable
-          onPress={onBell}
+          onPress={openBell}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Notifications"
@@ -90,7 +101,7 @@ export function DriverHeader({
         >
           <View>
             <Bell size={24} color={theme.colors.textPrimary} strokeWidth={2} />
-            {bellBadge ? (
+            {showDot ? (
               <View
                 style={{
                   position: 'absolute',

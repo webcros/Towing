@@ -1,0 +1,38 @@
+# Track B Phase 13 — the driver notification centre, hermetic.
+#
+# Runs against `notificationsMockSource`/`kycMockSource` (no backend, no push,
+# no Firebase). Requires `EXPO_PUBLIC_USE_MOCKS` unset or `true`.
+#
+# What it proves: the bell in `DriverHeader` — which navigated to a
+# `PlaceholderScreen` until Phase 13 — opens the real centre, and the KYC
+# approval notification is readable there. That last part is the half of the
+# §9.4.3 acceptance chain a flow CAN check without a server: the message the
+# driver is supposed to receive exists and is legible.
+#
+# ⚠ NEVER EXECUTED. This app has no EAS project id at all, so it cannot even be
+# built yet. Reviewed against the screens as written.
+appId: in.mitow.partner
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Enter your mobile number"
+- tapOn: "98765 43210"
+- inputText: "9876543210"
+- tapOn: "Send OTP"
+- assertVisible: "Enter the code"
+- tapOn: "••••••"
+- inputText: "123456"
+
+# The mock driver is approved, so the gate lets us through to the tabs rather
+# than forcing the KYC wizard.
+- assertVisible:
+    id: "Notifications"
+- tapOn:
+    id: "Notifications"
+
+- assertVisible: "You are verified"
+- assertVisible: "Payout sent"
+
+- tapOn: "Mark all read"
+- assertNotVisible: "Mark all read"

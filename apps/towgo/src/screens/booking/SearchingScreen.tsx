@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '@towing/theme';
 import { Text, Button, MapPreview } from '@towing/ui';
 import { Clock, Check, RefreshCw, Headphones, Truck } from '@/icons';
 import { BackButton } from '@/components/BackButton';
-import { useSearchSimulation } from '@/features/booking/hooks/useSearchSimulation';
+import { useBooking, useCancelBooking, useRetrySearch } from '@/features/bookings/api/bookings.queries';
+import { useSearchProgress, type SearchProgress } from '@/features/booking/hooks/useSearchProgress';
 import { RadarPulse } from '@/features/booking/components/RadarPulse';
 import { StatusBanner } from '@/features/booking/components/StatusBanner';
 import { RequestDetailsCard } from '@/features/booking/components/RequestDetailsCard';
@@ -21,14 +22,74 @@ const HEADINGS = {
   no_drivers: { title: 'No drivers found', subtitle: "We couldn't find a driver nearby right now." },
 } as const;
 
+type SearchPhase = keyof typeof HEADINGS;
+
+/**
+ * §9.1.6's AC: "wave transitions reflect the actual engine state (no fake
+ * progress)".
+ *
+ * THIS SCREEN USED TO LIE. `useSearchSimulation` was a `setTimeout` ladder that
+ * pretended to contact drivers and produced a match after 6.5 seconds, for a
+ * booking that had never been created. Phase 15 deleted it and left the screen
+ * honestly saying "searching" forever, because there was no engine behind it.
+ *
+ * PHASE 17 GAVE IT ONE. Every number below is now read from the dispatch engine
+ * at the moment it advances a wave — the rung, the radius, and how many drivers
+ * have actually been contacted — over the `/customer` socket, with the
+ * ten-second poll carrying the same facts when the socket is unavailable. The
+ * `widening` phase, unreachable since the screen was built, is finally real.
+ */
+function phaseFor(status: string | undefined, progress: SearchProgress | null): SearchPhase {
+  switch (status) {
+    case 'no_drivers_found':
+      return 'no_drivers';
+    case 'assigned':
+    case 'en_route':
+    case 'arrived':
+    case 'in_progress':
+      return 'matched';
+    default:
+      // Past the first rung the search has genuinely widened, and saying so is
+      // the difference between a customer waiting and a customer cancelling.
+      return progress && progress.wave > 1 ? 'widening' : 'searching';
+  }
+}
+
 export function SearchingScreen() {
   const theme = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { phase, driversContacted, retry } = useSearchSimulation();
+  const { bookingId } = useRoute<RouteProp<RootStackParamList, 'Searching'>>().params;
 
-  const goHome = useCallback(() => navigation.popToTop(), [navigation]);
+  const { data: booking } = useBooking(bookingId, { poll: true });
+  const cancelBooking = useCancelBooking();
+  const retrySearch = useRetrySearch();
+  /**
+   * §9.1.6's real wave state — the socket when it is connected, the ten-second
+   * poll when it is not, and whichever is further along when both are.
+   */
+  const progress = useSearchProgress(bookingId, booking?.search);
+  const phase = phaseFor(booking?.status, progress);
+
+  /**
+   * §9.1.6: "Cancel — free" during search, and §3.5 agrees ("during SEARCHING
+   * cancellation is always free"). This used to be `navigation.popToTop()` and
+   * nothing else, which left a real booking running server-side while the
+   * customer believed they had cancelled it.
+   */
+  const goHome = useCallback(() => {
+    cancelBooking.mutate(
+      { bookingId, reason: 'Cancelled during search' },
+      { onSettled: () => navigation.popToTop() },
+    );
+  }, [cancelBooking, bookingId, navigation]);
+
   const notReady = useCallback(() => {}, []);
   const goBack = useCallback(() => navigation.goBack(), [navigation]);
+  // §9.1.6's "retry / widen", real as of Phase 17. Re-searching the SAME booking
+  // preserves the fare locked at confirm; a new booking would re-quote the
+  // customer for the platform's failure to find anyone.
+  const retry = useCallback(() => retrySearch.mutate(bookingId), [retrySearch, bookingId]);
+  const driversContacted = progress?.driversContacted ?? 0;
 
   // On match: brief celebration, then hand off to the tracking screen.
   const advanced = useRef(false);
@@ -36,10 +97,13 @@ export function SearchingScreen() {
     if (phase !== 'matched' || advanced.current) return;
     advanced.current = true;
     const t = setTimeout(() => {
-      navigation.reset({ index: 1, routes: [{ name: 'Tabs' }, { name: 'Tracking' }] });
+      navigation.reset({
+        index: 1,
+        routes: [{ name: 'Tabs' }, { name: 'Tracking', params: { bookingId } }],
+      });
     }, 1400);
     return () => clearTimeout(t);
-  }, [phase, navigation]);
+  }, [phase, navigation, bookingId]);
 
   const heading = HEADINGS[phase];
   const isSearching = phase === 'searching' || phase === 'widening';
@@ -131,8 +195,14 @@ export function SearchingScreen() {
                 icon={Clock}
                 title="Hang tight!"
                 subtitle={
-                  phase === 'widening'
-                    ? 'Expanding your search — reaching more drivers nearby.'
+                  phase === 'widening' && progress
+                    ? // The RADIUS, not "still looking". A customer watching a
+                      // spinner needs evidence that something is happening, and
+                      // "now searching 7 km" is the difference between patience
+                      // and cancelling. Every number here comes from the engine.
+                      `Now searching ${progress.radiusKm} km — ${progress.driversContacted} driver${
+                        progress.driversContacted === 1 ? '' : 's'
+                      } contacted so far.`
                     : "We'll notify you as soon as a driver accepts your request."
                 }
               />

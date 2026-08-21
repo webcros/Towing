@@ -8,7 +8,6 @@ import {
   Star,
   Calendar,
   ShieldCheck,
-  Shield,
   User,
   CarFront,
   FileText,
@@ -156,16 +155,9 @@ export function ProfileScreen() {
             <MenuRow
               icon={FileText}
               tone="blue"
-              title="Terms & Conditions"
-              subtitle="Read our terms and conditions"
-              onPress={() => navigation.navigate('Terms')}
-            />
-            <MenuRow
-              icon={Shield}
-              tone="purple"
-              title="Privacy Policy"
-              subtitle="Read our privacy policy"
-              onPress={() => navigation.navigate('Privacy')}
+              title="Legal & Privacy"
+              subtitle="Terms, privacy policy, export or delete your data"
+              onPress={() => navigation.navigate('Legal')}
             />
             <MenuRow
               icon={LogOut}

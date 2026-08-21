@@ -15,6 +15,26 @@ export const vehicleClassEnum = pgEnum('vehicle_class', ['wheel_lift', 'flatbed'
 // Spec §3.3 — A: local ≤40km @10%, B: highway 40–100km @8%, C: long-haul >100km @5%.
 export const commissionBandEnum = pgEnum('commission_band', ['A', 'B', 'C']);
 
+/**
+ * §7.4 surge tiers. Phase 14 replaced the free-text `service_zones.surge_band`
+ * with this: the column was nullable `text`, only ever held the literal
+ * 'standard', and nothing read it. The estimate multiplies by the band, so a
+ * typo in free text is a silently un-surged fare.
+ */
+export const surgeBandEnum = pgEnum('surge_band', ['standard', 'high', 'peak']);
+
+/**
+ * Discriminator on `pricing_rules`. `slab` is a §7.1/§7.2 distance band,
+ * `long_distance` a §7.3 range (price..price_max, interpolated), `roadside` a
+ * flat per-service fare. A CHECK in migration 0011 enforces which columns each
+ * kind may populate.
+ */
+export const pricingRuleKindEnum = pgEnum('pricing_rule_kind', [
+  'slab',
+  'long_distance',
+  'roadside',
+]);
+
 export const accountStatusEnum = pgEnum('account_status', ['active', 'suspended', 'deleted']);
 
 // Spec §17 drivers.kyc_status

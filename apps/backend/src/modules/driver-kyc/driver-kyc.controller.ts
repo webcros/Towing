@@ -66,7 +66,8 @@ export class DriverKycController {
   }
 }
 
-function driverId(request: AuthedRequest): string {
+/** Exported so the notification-centre driver controller resolves its subject the same way. */
+export function driverId(request: AuthedRequest): string {
   const auth = request.auth;
   if (!auth) throw ApiException.unauthorized();
   return auth.sub;

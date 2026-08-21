@@ -41,6 +41,7 @@ function normalizeJobId(jobId: string): string {
 export class BullMqAdapter implements QueuePort, OnModuleDestroy {
   private readonly logger = new Logger(BullMqAdapter.name);
   private readonly queues = new Map<JobName, Queue>();
+  private readonly deadLetterListeners: Array<(job: JobName, jobId: string, error: string) => void> = [];
   private readonly workers: Worker[] = [];
   private destroyed = false;
 
@@ -164,7 +165,18 @@ export class BullMqAdapter implements QueuePort, OnModuleDestroy {
       const max = job?.opts.attempts ?? DEFAULT_ATTEMPTS;
       // Distinguish "will retry" from "gave up": only the second is an
       // operational event worth waking someone for.
-      const level = attempts >= max ? 'error' : 'warn';
+      const exhausted = attempts >= max;
+      const level = exhausted ? 'error' : 'warn';
+      if (exhausted) {
+        // The DLQ landing, surfaced from the one place that already knows it.
+        for (const listener of this.deadLetterListeners) {
+          try {
+            listener(name, job?.id ?? '?', err.message);
+          } catch (listenerError) {
+            this.logger.error(`dead-letter listener threw: ${String(listenerError)}`);
+          }
+        }
+      }
       this.logger[level](
         `${name} job ${job?.id ?? '?'} failed (attempt ${attempts}/${max}): ${err.message}`,
       );
@@ -173,6 +185,10 @@ export class BullMqAdapter implements QueuePort, OnModuleDestroy {
 
     this.workers.push(worker);
     this.logger.log(`worker started for ${name} (concurrency ${this.env.QUEUE_CONCURRENCY})`);
+  }
+
+  onDeadLetter(listener: (job: JobName, jobId: string, error: string) => void): void {
+    this.deadLetterListeners.push(listener);
   }
 
   async stats(): Promise<QueueStats[]> {

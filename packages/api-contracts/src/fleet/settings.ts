@@ -111,7 +111,25 @@ export const fleetSettingsUpdateSchema = z
       .regex(GSTIN_REGEX, 'Enter a valid 15-character GSTIN')
       .nullable(),
     address: z.string().trim().min(10).max(300).nullable(),
-    notificationPrefs: notificationPrefsSchema.partial(),
+    /**
+     * ⚠ NOT `notificationPrefsSchema.partial()`. `.partial()` makes a key
+     * optional but does NOT strip its `.default()`, so `{ compliance: false }`
+     * parses into all four keys with the other three at their defaults — and
+     * `settings.repo.ts`'s merge then writes them, silently resetting a
+     * preference the owner had deliberately changed and the client never
+     * mentioned. That is exactly the behaviour the repo's own "merge, never
+     * replace" comment promises and this schema was defeating.
+     *
+     * Restated without defaults. Keep in step with `notificationPrefsSchema`.
+     */
+    notificationPrefs: z
+      .object({
+        compliance: z.boolean(),
+        payouts: z.boolean(),
+        jobs: z.boolean(),
+        weekly: z.boolean(),
+      })
+      .partial(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, {

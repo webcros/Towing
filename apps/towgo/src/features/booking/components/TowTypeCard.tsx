@@ -3,7 +3,6 @@ import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 import { Info, Check } from '@/icons';
-import { formatINR } from '@/utils/format';
 import type { TowType } from '../types';
 import { Pressable } from '@/motion';
 
@@ -27,7 +26,7 @@ export function TowTypeCard({
       disabled={towType.disabled}
       accessibilityRole="button"
       accessibilityState={{ selected, disabled: towType.disabled }}
-      accessibilityLabel={`${towType.name}, ${towType.categories}, ${formatINR(towType.price)}`}
+      accessibilityLabel={`${towType.name}, ${towType.categories}`}
       style={() => ({
         width: 145,
         height: 176,
@@ -62,20 +61,16 @@ export function TowTypeCard({
         {towType.categories}
       </Text>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Text weight="semibold" tabular style={{ fontSize: 15, lineHeight: 22 }}>
-          {formatINR(towType.price)}
-        </Text>
-        {towType.comparePrice ? (
-          <Text
-            color="tertiary"
-            tabular
-            style={{ fontSize: 11, lineHeight: 17, textDecorationLine: 'line-through' }}
-          >
-            {formatINR(towType.comparePrice)}
-          </Text>
-        ) : null}
-      </View>
+      {/*
+        THE PER-CARD PRICE IS GONE (Phase 14).
+
+        It was a hardcoded rupee number with a struck-through "compare at" beside
+        it, and §7 cannot reproduce either: a fare depends on the distance and
+        the zone, so four cards cannot each carry one, and there is no discount
+        for a compare-price to represent. §9.1.5 puts the fare at step 3 — the
+        bottom bar and the breakdown sheet — while step 1 is service and vehicle.
+        The card now sells the CLASS, which is the choice being made here.
+      */}
 
       {selected ? (
         <View

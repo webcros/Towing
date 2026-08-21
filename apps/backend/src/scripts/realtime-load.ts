@@ -142,7 +142,7 @@ async function main(): Promise<void> {
     const ticket = randomBytes(32).toString('base64url');
     await redis.set(
       wsTicketKey(ticket),
-      JSON.stringify({ fleetId: args.fleetId, userId: randomUUID() }),
+      JSON.stringify({ realm: 'fleet', fleetId: args.fleetId, subjectId: randomUUID() }),
       'EX',
       120,
     );

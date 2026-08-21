@@ -29,7 +29,26 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<DriverTabParamList> | undefined;
 
   JobDetails: { jobId: string } | undefined;
-  ActiveJob: { offerId: string } | undefined;
+
+  /**
+   * §6.3's offer, full-screen (Phase 17).
+   *
+   * NO PARAMS. The offer is read from the query cache, which is the one place
+   * the socket frame, the §19.2 poll and a push tap all agree — passing a
+   * booking id here would let a stale route param disagree with the cache about
+   * which offer is live, and the loser of that disagreement is a driver tapping
+   * Accept on the wrong booking.
+   */
+  OfferTakeover: undefined;
+
+  /**
+   * The job the driver holds (Phase 17). Was `ActiveJob`, a placeholder taking
+   * an `offerId` — which was the wrong key: a driver has at most one active
+   * booking (§3.8) and `GET /v1/driver/jobs/current` is its authority, so there
+   * is nothing to identify. Phase 18 adds arrive/start/complete to this same
+   * screen rather than replacing it.
+   */
+  AssignedJob: undefined;
 
   // Account (Profile) sub-screens
   PersonalInformation: undefined;
@@ -38,7 +57,7 @@ export type RootStackParamList = {
   BankDetails: undefined;
   Insurance: undefined;
   HelpSupport: undefined;
-  Terms: undefined;
-  Privacy: undefined;
+  /** Privacy/terms copy plus the §20.4 DPDP export + account-deletion actions. */
+  Legal: undefined;
   Notifications: undefined;
 };

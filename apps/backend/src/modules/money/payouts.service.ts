@@ -12,7 +12,7 @@ import {
 import { ApiException } from '../../common/errors/api-exception';
 import { isUniqueViolation } from '../../common/errors/pg-errors';
 import { FleetEventsService } from '../../common/events/fleet-events.service';
-import { NOTIFICATIONS, type NotificationPort } from '../../common/notifications/notification.port';
+import { NotificationService } from '../../common/notifications/notification.service';
 import { ENV, type Env } from '../../config/env';
 import { DB, type Database } from '../../db/db.module';
 import { ledgerKeys } from '../../db/ledger/idempotency-keys';
@@ -47,7 +47,7 @@ export class PayoutsService {
     private readonly events: FleetEventsService,
     @Inject(DB) private readonly db: Database,
     @Inject(PAYOUT_PROVIDER) private readonly provider: PayoutProviderPort,
-    @Inject(NOTIFICATIONS) private readonly notifications: NotificationPort,
+    private readonly notifications: NotificationService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -115,7 +115,7 @@ export class PayoutsService {
     if (!row) return;
 
     await resolvePayoutAlert(this.db, payoutId);
-    await this.notify(row, 'payout_paid');
+    await this.emitStatusNotification(row, 'payout_paid');
     await this.events.emit(row.ownerId, { kind: 'payout_status', payoutId, status: 'paid' });
 
     this.logger.log(`payout ${payoutId} paid (${row.routeRef ?? 'no provider ref'})`);
@@ -148,7 +148,7 @@ export class PayoutsService {
     // Opened HERE, at the point of failure. Phase 6's hourly `syncPayoutAlerts`
     // was an explicit stopgap for the window where no payout write path existed.
     await openPayoutFailedAlert(this.db, payoutId);
-    await this.notify(row, 'payout_failed');
+    await this.emitStatusNotification(row, 'payout_failed');
     await this.events.emit(row.ownerId, { kind: 'payout_status', payoutId, status: 'failed' });
 
     this.logger.warn(`payout ${payoutId} failed: ${reason}`);
@@ -297,24 +297,34 @@ export class PayoutsService {
     return destination;
   }
 
-  /** §12.2: payout processed/failed notifies push + SMS + email. Best-effort. */
-  private async notify(row: PayoutRow, template: 'payout_paid' | 'payout_failed'): Promise<void> {
-    for (const channel of ['push', 'sms', 'email'] as const) {
-      try {
-        await this.notifications.notify({
-          to: row.ownerId,
-          channel,
-          template,
-          variables: {
-            amount: row.amount,
-            payoutId: row.id,
-            ...(row.failureReason ? { reason: row.failureReason } : {}),
-          },
-        });
-      } catch (error) {
-        // A provider outage must never roll back a completed money transition.
-        this.logger.warn(`payout ${template} notification (${channel}) failed: ${String(error)}`);
-      }
+  /**
+   * §12.2: payout processed/failed notifies push + SMS + email.
+   *
+   * One `emit` for all three channels — the registry owns which channels a row
+   * uses, so this no longer loops. `to: row.ownerId` until Phase 13 put a UUID
+   * into a field documented as an address; the resolver now branches on
+   * `ownerType` across ALL THREE `wallet_owner_type` values, because narrowing
+   * it to fleet-or-driver is how a customer-wallet payout notifies nobody.
+   */
+  private async emitStatusNotification(row: PayoutRow, template: 'payout_paid' | 'payout_failed'): Promise<void> {
+    try {
+      await this.notifications.emit(
+        template === 'payout_paid' ? 'payout.processed' : 'payout.failed',
+        {
+          payoutId: row.id,
+          ownerType: row.ownerType,
+          ownerId: row.ownerId,
+          amount: row.amount,
+          reference: row.routeRef ?? null,
+          reason: row.failureReason ?? null,
+        },
+      );
+    } catch (error) {
+      // A provider outage must never roll back a completed money transition.
+      // `emit` only writes rows and enqueues, so this is now a database or
+      // Redis failure rather than a vendor one — still not worth losing money
+      // state over.
+      this.logger.warn(`payout ${template} notification failed: ${String(error)}`);
     }
   }
 }

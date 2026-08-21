@@ -20,3 +20,5 @@ export * from './admin';
 export * from './social';
 export * from './devices';
 export * from './privacy';
+export * from './notifications';
+export * from './pricing';

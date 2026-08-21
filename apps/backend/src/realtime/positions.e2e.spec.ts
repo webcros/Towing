@@ -4,10 +4,12 @@ import type { PositionsSnapshotDto } from '@towing/api-contracts';
 import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeEach, beforeAll, describe, expect, it } from 'vitest';
+import { isUniqueViolation } from '../common/errors/pg-errors';
 import { bookings, drivers, fleetTrucks } from '../db/schema';
 import { truckGeoKey, truckHashKey } from '../redis/redis.constants';
 import { authHeaderFor, createTestApp } from '../test/app';
 import {
+  seedCustomer,
   seedDriver,
   seedFleet,
   setupTestDatabase,
@@ -223,13 +225,64 @@ describe('realtime positions snapshot', () => {
     const truckId = await seedTruck(db, fleetId);
     const driverId = await seedDriver(db, { fleetId });
     await db.update(drivers).set({ assignedTruckId: truckId }).where(eq(drivers.id, driverId));
-    await seedBooking(db, { userId, fleetId, driverId, status: 'assigned' });
-    await seedBooking(db, { userId, fleetId, driverId, status: 'en_route' });
+    /**
+     * ⚠ THIS FIXTURE CHANGED IN PHASE 17, and the reason is worth keeping.
+     *
+     * It used to give one driver TWO ACTIVE bookings for two different
+     * customers — exactly the shape that would duplicate a truck row through the
+     * left join. Migration 0014 added `uq_bookings_one_active_per_driver`
+     * (§19.4's "unique constraints as the final backstop" for the dispatch
+     * engine) and that state can no longer be inserted at all: the old fixture
+     * started failing on the constraint, which is the index doing its job.
+     *
+     * The dedupe in `PositionsRepo.trucksFor` is still correct and still worth
+     * asserting — one active booking plus a finished one drives the same join
+     * and the same status filter. The now-impossible case is asserted directly
+     * in the test below rather than deleted.
+     */
+    await seedBooking(db, { userId: await seedCustomer(db), fleetId, driverId, status: 'assigned' });
+    await seedBooking(db, { userId: await seedCustomer(db), fleetId, driverId, status: 'completed' });
 
     const snapshot = await snapshotFor(await authHeaderFor(app, { userId, fleetId }));
 
     // One truck must never render as two markers.
     expect(snapshot.positions.filter((p) => p.truckId === truckId)).toHaveLength(1);
+    // ...and it is the ACTIVE booking that surfaced, not the completed one.
+    expect(snapshot.positions.find((p) => p.truckId === truckId)?.activeBookingId).not.toBeNull();
     expect(await db.select().from(fleetTrucks).where(eq(fleetTrucks.fleetId, fleetId))).toHaveLength(1);
+  });
+
+  it('refuses to put one driver on two active jobs at all (migration 0014)', async () => {
+    /**
+     * The backstop whose absence the fixture above used to rely on.
+     *
+     * `OfferService.accept` takes `SELECT … FOR UPDATE` on the BOOKING row,
+     * which serialises two drivers racing the same job — but it does nothing
+     * about one driver accepting two DIFFERENT bookings in the same instant,
+     * because those are two rows and neither transaction sees the other. The
+     * Redis offer lock makes that vanishingly unlikely; this index makes it
+     * impossible, and a driver committed to two customers at once is a state no
+     * amount of application care should be the only thing preventing.
+     */
+    const { fleetId } = await seedFleet(db, `Fleet ${randomUUID().slice(0, 8)}`);
+    const driverId = await seedDriver(db, { fleetId });
+
+    await seedBooking(db, { userId: await seedCustomer(db), fleetId, driverId, status: 'assigned' });
+
+    // `isUniqueViolation` rather than a message match: drizzle wraps the driver
+    // error, so the constraint name sits on `cause` and the outer `message` is
+    // the whole failed SQL statement. That helper is the codebase's existing
+    // answer to exactly this, and it is what the service layer uses.
+    const second = await seedBooking(db, {
+      userId: await seedCustomer(db),
+      fleetId,
+      driverId,
+      status: 'en_route',
+    }).catch((error: unknown) => error);
+
+    expect(isUniqueViolation(second)).toBe(true);
+    expect(String((second as { cause?: { constraint_name?: string } }).cause?.constraint_name)).toBe(
+      'uq_bookings_one_active_per_driver',
+    );
   });
 });

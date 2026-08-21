@@ -7,6 +7,7 @@ import type {
 import { and, eq } from 'drizzle-orm';
 import { ApiException } from '../../common/errors/api-exception';
 import { isUniqueViolation } from '../../common/errors/pg-errors';
+import { DeviceRegistryService } from '../../common/notifications/device-registry.service';
 import { DB, type Database } from '../../db/db.module';
 import {
   addresses,
@@ -27,7 +28,10 @@ export type PrivacySubjectType = 'user' | 'driver';
  */
 @Injectable()
 export class AccountPrivacyService {
-  constructor(@Inject(DB) private readonly db: Database) {}
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly devices: DeviceRegistryService,
+  ) {}
 
   async requestDeletion(
     subjectType: PrivacySubjectType,
@@ -39,6 +43,13 @@ export class AccountPrivacyService {
         .insert(deletionRequests)
         .values({ subjectType, subjectId, reason })
         .returning({ id: deletionRequests.id, requestedAt: deletionRequests.requestedAt });
+
+      // Invariant 73: a push token is device-scoped state and must be revoked
+      // when the account it belongs to ends, not merely orphaned. Phase 20's
+      // erasure worker runs much later; between now and then every notification
+      // for this subject would otherwise keep rendering on their lock screen —
+      // including on a handset they may have already sold or returned.
+      await this.devices.revokeAllForSubject(subjectType, subjectId, 'account_deletion_requested');
 
       return { requestId: row!.id, status: 'requested', requestedAt: row!.requestedAt.toISOString() };
     } catch (error) {
@@ -84,8 +95,15 @@ export class AccountPrivacyService {
 
     if (subjectType === 'driver') {
       // Nothing else exists to export for a driver yet beyond KYC documents,
-      // which stay out of the export bundle for now — DPDP §20.4's own
-      // scoping question, noted in ToBeDoneEhsan.md rather than assumed.
+      // which stay out of the export bundle for now — a DPDP §20.4 scoping
+      // question, decided rather than assumed: the export returns the
+      // driver's own identity and consent records, not the identity images
+      // themselves. Shipping the images would mean minting signed GETs for
+      // government-ID scans into a self-service response, and DPDP's access
+      // right is over personal *data*, not over copies of the verification
+      // artefacts. Reversible (add the rows here + presigned GETs) if the
+      // legal read comes back the other way — recorded in ToBeDoneEhsan.md
+      // under "New in Phase 12".
       const [driver] = await this.db
         .select({
           id: drivers.id,

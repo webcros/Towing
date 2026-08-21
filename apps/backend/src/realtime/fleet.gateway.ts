@@ -63,8 +63,15 @@ export class FleetGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     const claims = await this.tickets.consume(auth?.ticket);
     if (claims === null) throw new Error('unauthorized');
 
+    // Realm is checked BEFORE the id is trusted. A driver ticket carries a
+    // `drivers.id` and no tenant; accepting it here would either unroom the
+    // socket or — worse, if a `fleetId` were ever inferred — put a driver in a
+    // console's room. Phase 16 added the second realm; this is the check that
+    // keeps the two apart.
+    if (claims.realm !== 'fleet') throw new Error('unauthorized');
+
     socket.data.fleetId = claims.fleetId;
-    socket.data.userId = claims.userId;
+    socket.data.userId = claims.subjectId;
   }
 
   handleConnection(socket: FleetSocket): void {

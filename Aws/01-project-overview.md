@@ -16,14 +16,14 @@ Full product detail: [`docs/Towing-Project-Specification_v3.md`](../docs/Towing-
 
 | Interface | Users | Platform | Repo location | Status |
 |---|---|---|---|---|
-| **TowGo** | Customers | React Native (Expo) | `apps/towgo` | UI built, runs on **in-app mocks only** — does **not** talk to the backend yet |
-| **TowPartner** | Tow drivers | React Native (Expo) | `apps/towpartner` | UI built, runs on **in-app mocks only** — does **not** talk to the backend yet |
+| **TowGo** | Customers | React Native (Expo) | `apps/towgo` | UI built; since Phase 12 it has **real phone-OTP sign-in, a real REST client and MMKV storage** and does talk to the backend. Mocks remain the *default* (`EXPO_PUBLIC_USE_MOCKS`); only the features whose routes exist (auth, `/me` profile group, privacy) flip to REST today |
+| **TowPartner** | Tow drivers | React Native (Expo) | `apps/towpartner` | Same stack, plus the driver KYC document-upload wizard, a capabilities screen and a durable offline mutation queue. **No EAS build has ever been produced, so neither app has run on a physical device** |
 | **TowFleet Web** | Fleet owners | Web — Next.js 15 App Router | `apps/towfleet-web` | **Built and wired to the real backend** (mock mode also available); the deployable web app |
-| **Towing Admin** | Platform ops | Web — Next.js (planned) | — | **Not built.** Seams left: realm-prefixed auth cookies/JWT claims, shared `web-ui`/theme, empty `packages/api-contracts/src/admin/` folder |
+| **Towing Admin** | Platform ops | Web — `/admin/*` routes **inside `apps/towfleet-web`** | `apps/towfleet-web` | **Minimally built (Phase 11)**: admin login and the driver-KYC approval queue, realm-separated from the fleet console and sharing its BFF proxy. The wider live-ops surface arrives in Phase 20 |
 
-All four sit on one **shared NestJS backend** (`apps/backend`) — currently serving only the TowFleet realm. A location **simulator** (`pnpm sim:locations` inside `apps/backend`) stands in for the driver mobile app by streaming fake truck GPS into Redis.
+All four sit on one **shared NestJS backend** (`apps/backend`), which now serves **four auth realms** (customer, driver, fleet, admin). A location **simulator** (`pnpm sim:locations` inside `apps/backend`) still stands in for real driver GPS by streaming fake truck positions into Redis — the driver app's location pipeline is Phase 16, not built yet.
 
-**What you are deploying in Phase 9:** `apps/backend` + `apps/towfleet-web` (plus Postgres/PostGIS, Redis). The mobile apps and the Admin console are out of scope for this deployment.
+**What you are deploying in Phase 9:** `apps/backend` + `apps/towfleet-web` (plus Postgres/PostGIS, Redis). The Expo mobile apps are not deployed by you — but they are **consumers of what you deploy**: Phase 9a (staging) exists partly so they get a reachable HTTPS origin, since an Expo client on cellular cannot reach a laptop. The `/admin/*` console ships inside `apps/towfleet-web` and needs no separate service.
 
 ## 3. Monorepo map
 
@@ -37,8 +37,8 @@ Towing/
 │   │   ├── drizzle/             ★ CANONICAL SQL migrations (0000–0004)
 │   │   └── src/                 modules, db/migrate.ts, db/seed/, scripts/simulate-locations.ts
 │   ├── towfleet-web/       Next.js 15 fleet-owner console (the deployable web app)
-│   ├── towgo/              Expo customer app (mocks only)
-│   └── towpartner/         Expo driver app (mocks only)
+│   ├── towgo/              Expo customer app (real auth + REST; mocks are the default toggle)
+│   └── towpartner/         Expo driver app (same, + KYC wizard and offline mutation queue)
 ├── packages/
 │   ├── api-contracts/      @towing/api-contracts — Zod schemas + branded ids shared web↔backend
 │   │                       (TS source via `import` condition; compiled CJS dist/ via `require`)
@@ -62,7 +62,7 @@ Towing/
 | Cache / realtime substrate | **Redis 7** | Target: ElastiCache. Used today for idempotency (CAS), OTP/session state, dashboard cache, location pub/sub + GEO sets; Phase 5 adds the Socket.io Redis adapter |
 | Fleet console (`apps/towfleet-web`) | Next.js 15.5 App Router, React 19.2.3, Tailwind v4, TanStack Query 5, Recharts, `@towing/web-ui` + `@towing/theme/tokens`, Playwright for e2e | Browser holds **only httpOnly cookies** (`fleet_session` 15-min JWT, `fleet_refresh` rotating 30-day token); a BFF proxy route `/api/proxy/[...path]` injects the bearer and transparently refreshes. **Refresh is serialized per-process** → multi-instance needs sticky sessions or a shared lock (flagged for Phase 8) |
 | Env semantics (web) | — | `NEXT_PUBLIC_USE_MOCKS` is **inlined at build time** into the bundle (bake `false` into the production image); `API_BASE_URL` is read **at runtime, server-side only** |
-| Mobile apps | Expo ~57 / React Native 0.86, React Navigation 7, Zustand, TanStack Query | Not deployed; no backend traffic yet |
+| Mobile apps | Expo ~57 / React Native 0.86, React Navigation 7, Zustand, TanStack Query (+ persist-client), MMKV | **Not deployed by you, but they do send backend traffic** since Phase 12: bearer tokens (no cookies/BFF — that model is web-only), phone-OTP auth, the customer `/v1/me/*` group and driver KYC pre-signed uploads. High-volume **location ingestion is not among it yet** (Phase 16). No EAS build exists, so neither app has run on a physical device |
 | Shared contracts | `@towing/api-contracts` | Run `turbo build` after editing contracts — the compiled backend consumes `dist/` CJS |
 
 ### System shape today (local)
@@ -83,26 +83,34 @@ flowchart LR
     API --> PG[(Postgres 16 + PostGIS)]
     API --> R
     SIM -.lazy flush.-> PG
-    M1[TowGo app] -. mocks only, no backend .- M2[TowPartner app]
+    M1[TowGo app] -. real REST + OTP auth; not deployed by you .-> API
+    M2[TowPartner app] -. real REST + OTP auth; not deployed by you .-> API
 ```
 
-## 5. Current status — Phases 1–9
+## 5. Current status — Track A phases 1–9, Track B phases 10–21
 
-Source of truth: [`docs/TowFleet-Implementation-Plan.md`](../docs/TowFleet-Implementation-Plan.md) (accurate and current as of 03 Aug 2026).
+Source of truth: [`docs/TowFleet-Implementation-Plan-V2.md`](../docs/TowFleet-Implementation-Plan-V2.md) (current as of 10 Aug 2026; V1 `TowFleet-Implementation-Plan.md` is superseded). The plan splits into **Track A** (the fleet console + backend — what you deploy) and **Track B** (the marketplace and the two mobile apps).
+
+**Track A — TowFleet Web + backend**
 
 | Phase | Deliverable | Status |
 |---|---|---|
 | 1 | Monorepo & workspace scaffolding | ✅ Complete |
 | 2 | Console shell + design system + full mock-mode UI | ✅ Complete |
 | 3 | Backend foundation: DB, auth, tenancy, seed & simulator | ✅ Complete |
-| 4 | Core fleet REST APIs (trucks, drivers, dashboard, jobs) + console goes real | ✅ Complete (86/86 tests) |
-| 5 | Realtime: Socket.io gateway + Redis adapter, live fleet map, presence | ⬜ Next |
-| 6 | Compliance worker (BullMQ) + bulk CSV import | ⬜ Planned |
-| 7 | Money: earnings, split, payouts (Razorpay Route sandbox), reports | ⬜ Planned |
-| 8 | Hardening & scale rehearsal (multi-instance statelessness, k6, observability) | ⬜ Planned |
-| 9 | **AWS deployment** — your phase | ⬜ Planned |
+| 4 | Core fleet REST APIs (trucks, drivers, dashboard, jobs) + console goes real | ✅ Complete |
+| 5 | Realtime: Socket.io gateway + Redis adapter, live fleet map, presence | ✅ Complete |
+| 6 | Compliance worker (BullMQ) + bulk CSV import | ✅ Complete |
+| 7 | Money: earnings, split, payouts (Razorpay Route sandbox), reports | ✅ Complete |
+| 8 | Hardening & scale rehearsal (multi-instance statelessness, k6, observability) | ✅ Complete |
+| **9a** | **AWS staging** — your phase, and it is **next** | ⬜ Planned |
+| 9b | AWS production + autoscaling | ⬜ Planned |
 
-**AWS is the committed target** (spec §15, locked decision in the plan): ECS Fargate + ALB (WebSocket stickiness, idle timeout ≥ 75 s), RDS Postgres 16 + PostGIS, ElastiCache Redis, S3 SSE-KMS (swaps in for the current disk `StoragePort`), SQS/EventBridge for notifications/jobs, CloudFront, WAF, Secrets Manager, ECR + GitHub Actions, DNS `fleet.towing.app`. All vendor touchpoints are behind ports/adapters today, so these are configuration swaps, not rewrites. Note that Phases 5–8 land *before* 9 in the plan — expect Socket.io traffic (ALB stickiness matters) and BullMQ workers by the time you deploy.
+**Track B — marketplace & mobile:** phases **10 (multi-realm identity), 11 (driver KYC + the admin console) and 12 (both mobile apps off mocks) are complete**; **13 (notifications & push) is next**. Phases 14–21 (pricing, booking, presence, dispatch, tracking, money, safety, release) are planned.
+
+**Phase 9 now executes in two stages, and 9a comes first.** 9a is a staging environment pinned to `desiredCount: 1` — the pin is a written deploy gate, not a convention, because the Redis-backed throttler storage and shared BFF refresh lock from Phase 8 are what make >1 task safe. It was pulled forward ahead of Track B Phase 13 for three reasons: APNs/FCM device testing needs a reachable origin, Razorpay webhooks and the public share-trip page need public HTTPS, and Expo dev clients on cellular cannot reach a laptop. See the plan's "Phase 9 executes in two stages" section.
+
+**AWS is the committed target** (spec §15, locked decision in the plan): ECS Fargate + ALB (WebSocket stickiness, idle timeout ≥ 75 s), RDS Postgres 16 + PostGIS, ElastiCache Redis, S3 SSE-KMS (swaps in for the current disk `StoragePort`), SQS/EventBridge for notifications/jobs, CloudFront, WAF, Secrets Manager, ECR + GitHub Actions, DNS `fleet.towing.app`. All vendor touchpoints are behind ports/adapters today, so these are configuration swaps, not rewrites. Phases 5–8 have all landed, so Socket.io traffic (ALB stickiness matters) and BullMQ workers are running inside the API task **today**, not "by the time you deploy". Phase 11 also added pre-signed upload/download through `StoragePort` — the S3 adapter is now load-bearing for driver KYC documents, not just future-proofing.
 
 ## 6. What runs today, and how
 
@@ -131,8 +139,8 @@ pnpm fleet
 # Login: lakshmi@recovery.in / Password123!  (OTP appears in the backend terminal)
 
 # Tests
-cd apps/backend && docker compose --profile test up -d --wait && pnpm test   # 86 tests
-cd ../towfleet-web && pnpm test:e2e                                          # Playwright smoke
+cd apps/backend && docker compose --profile test up -d --wait && pnpm test   # 502 tests / 62 files
+cd ../towfleet-web && pnpm test:e2e                                          # Playwright, 29 hermetic
 ```
 
 Backend env vars (see `apps/backend/.env.example` for the full annotated list): `NODE_ENV`, `PORT`, `LOG_LEVEL`, `DATABASE_URL`, `DATABASE_POOL_MAX`, `REDIS_URL`, `JWT_ACCESS_SECRET` (32+ chars — generate a real one for any deploy), `JWT_ACCESS_TTL_SECONDS`, `JWT_REFRESH_TTL_SECONDS`, `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `CORS_ORIGINS`.
@@ -142,7 +150,7 @@ Backend env vars (see `apps/backend/.env.example` for the full annotated list): 
 | Document | Path | Role |
 |---|---|---|
 | Product spec v3 | `docs/Towing-Project-Specification_v3.md` | Single source of truth for product behavior; §15 = AWS architecture, §19 = SLOs |
-| Implementation plan & progress | `docs/TowFleet-Implementation-Plan.md` | Engineering source of truth: what is built, locked decisions, phase details, hard-won engineering notes |
+| Implementation plan & progress | `docs/TowFleet-Implementation-Plan-V2.md` | Engineering source of truth: what is built, locked decisions, phase details, hard-won engineering notes. **V2 supersedes `docs/TowFleet-Implementation-Plan.md` (V1)** — same phase numbering, re-homed into ownership lanes; read V2 |
 | **This AWS handover pack** | `Aws/` | Deployment-focused docs; this file (`01-project-overview.md`) is the overview |
 | Migrations snapshot | `Aws/migrations/` (0000–0004 + drizzle journal) | **Point-in-time copy for reference only** — `apps/backend/drizzle/` is CANONICAL; always run migrations from there |
 | Schema snapshot | `Aws/db/schema-snapshot.sql` | `pg_dump` of the schema as of 03 Aug 2026 — orientation aid, not an apply script |
@@ -172,7 +180,7 @@ Deployment decisions in this pack (each doc's "Decisions needed" section) are ra
 
 | Role | Who | Contact |
 |---|---|---|
-| Repo maintainer (built Phases 1–4) | TBD — must be supplied by project owner | TBD |
+| Repo maintainer (built Track A 1–8 and Track B 10–12) | TBD — must be supplied by project owner | TBD |
 | Product / business owner | TBD — must be supplied by project owner | TBD |
 | AWS account owner | TBD — must be supplied by project owner | TBD |
 | Vendor-relationship owner (MSG91, Razorpay, Google Maps) | TBD — must be supplied by project owner | TBD |

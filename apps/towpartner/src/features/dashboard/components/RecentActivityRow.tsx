@@ -2,10 +2,11 @@ import React from 'react';
 import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
-import { Check, Clock, ArrowRight } from '@/icons';
+import { ArrowRight } from '@/icons';
 import { IconChip } from '@/components/IconChip';
 import { driverColors } from '@/theme/driverColors';
 import { formatINR } from '@/utils/format';
+import { JOB_STATUS_META } from '@/features/jobs/statusMeta';
 import type { RecentJob } from '../types';
 import { Pressable } from '@/motion';
 
@@ -15,15 +16,16 @@ import { Pressable } from '@/motion';
  */
 export function RecentActivityRow({ item, onPress }: { item: RecentJob; onPress?: () => void }) {
   const theme = useTheme();
-  const completed = item.status === 'completed';
-  const statusColor = completed ? driverColors.online : driverColors.accent;
-  const statusLabel = completed ? 'Completed' : 'Cancelled';
+  // Reads the shared status map rather than a completed/else ternary — with the
+  // full ten-status vocabulary, "not completed" is not the same as "cancelled".
+  const meta = JOB_STATUS_META[item.status];
+  const statusColor = driverColors.chip[meta.tone].fg;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.vehicleName}, ${statusLabel}, ${formatINR(item.fare)}`}
+      accessibilityLabel={`${item.vehicleName}, ${meta.label}, ${formatINR(item.fare)}`}
       style={() => ({
         flexDirection: 'row',
         alignItems: 'center',
@@ -32,12 +34,7 @@ export function RecentActivityRow({ item, onPress }: { item: RecentJob; onPress?
         paddingVertical: 14,
       })}
     >
-      <IconChip
-        icon={completed ? Check : Clock}
-        tone={completed ? 'green' : 'orange'}
-        size={44}
-        iconSize={18}
-      />
+      <IconChip icon={meta.icon} tone={meta.tone} size={44} iconSize={18} />
 
       <View style={{ flex: 1 }}>
         <Text weight="medium" numberOfLines={1} style={{ fontSize: 16, lineHeight: 24 }}>
@@ -58,7 +55,7 @@ export function RecentActivityRow({ item, onPress }: { item: RecentJob; onPress?
         <Text weight="medium" tabular style={{ fontSize: 15, lineHeight: 22 }}>
           {formatINR(item.fare)}
         </Text>
-        <Text style={{ fontSize: 12, lineHeight: 17, color: statusColor }}>{statusLabel}</Text>
+        <Text style={{ fontSize: 12, lineHeight: 17, color: statusColor }}>{meta.label}</Text>
       </View>
     </Pressable>
   );

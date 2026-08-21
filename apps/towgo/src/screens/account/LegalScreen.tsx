@@ -9,6 +9,7 @@ import { Download, Trash2, X } from '@/icons';
 import { SubScreen } from '@/components/SubScreen';
 import { SettingsList } from '@/components/SettingsList';
 import { SettingsRow } from '@/components/SettingsRow';
+import { ApiClientError } from '@/lib/api/errors';
 import { useDeleteAccount, useExportData } from '@/features/account/api/privacy.queries';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { POLICY_VERSION } from '@/lib/legal/policyVersion';
@@ -56,7 +57,7 @@ const PRIVACY_SECTIONS = [
 
 const TERMS_SECTIONS = [
   {
-    title: 'Using TowGo',
+    title: 'Using MiTow',
     body: 'The app connects you with independent towing partners. Fares, ETAs and vehicle availability are estimates and may vary at the time of service.',
   },
   {
@@ -65,7 +66,7 @@ const TERMS_SECTIONS = [
   },
   {
     title: 'Liability',
-    body: 'TowGo facilitates the booking; the towing partner is responsible for the service performed on your vehicle.',
+    body: 'MiTow facilitates the booking; the towing partner is responsible for the service performed on your vehicle.',
   },
 ];
 
@@ -112,7 +113,15 @@ export function LegalScreen() {
                   },
                 ]);
               },
-              onError: () => Alert.alert('Something went wrong', 'Could not file the deletion request right now.'),
+              onError: (error) => {
+                // 409 = `uq_deletion_requests_one_open_per_subject`; the request
+                // IS filed, so a generic failure message would be misleading.
+                if (error instanceof ApiClientError && error.status === 409) {
+                  Alert.alert('Already requested', 'Your account deletion request is already being processed.');
+                  return;
+                }
+                Alert.alert('Something went wrong', 'Could not file the deletion request right now.');
+              },
             }),
         },
       ],

@@ -12,10 +12,7 @@ import type { PageQuery } from '@towing/api-contracts';
 import { ApiException } from '../../common/errors/api-exception';
 import { FleetEventsService } from '../../common/events/fleet-events.service';
 import { isUniqueViolation } from '../../common/errors/pg-errors';
-import {
-  NOTIFICATIONS,
-  type NotificationPort,
-} from '../../common/notifications/notification.port';
+import { NotificationService } from '../../common/notifications/notification.service';
 import { istMonthStart } from '../../common/time/ist';
 import { DriversRepo, type DriverRow } from './drivers.repo';
 
@@ -38,7 +35,7 @@ export class DriversService {
   constructor(
     private readonly repo: DriversRepo,
     private readonly events: FleetEventsService,
-    @Inject(NOTIFICATIONS) private readonly notifications: NotificationPort,
+    private readonly notifications: NotificationService,
   ) {}
 
   async list(fleetId: FleetId, query: PageQuery): Promise<DriversListResponse> {
@@ -89,11 +86,13 @@ export class DriversService {
     }
 
     // The driver finishes KYC in TowPartner; approval stays with platform admin.
-    await this.notifications.notify({
-      to: body.mobile,
-      channel: 'sms',
-      template: 'fleet_driver_invite',
-      variables: { name: body.name },
+    //
+    // Emits a domain id, not a phone number: the resolver reads the driver's
+    // current mobile at delivery time, so an invite queued behind a slow
+    // provider still reaches the number on file rather than a stale copy.
+    await this.notifications.emit('fleet.driver_invited', {
+      driverId: row.id,
+      businessName: body.name,
     });
 
     return toDto(row, null, undefined);

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { track } from '@/lib/analytics/analytics';
 import { clearQueuedMutations } from '@/lib/mutationQueue/queue';
+import { unregisterThisDevice } from '@/features/notifications/push/usePushRegistration';
 import { authDataSource } from './authDataSource';
 import { useAuthStore } from '../store/authStore';
 
@@ -32,7 +33,17 @@ export function useLogout() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (refreshToken: string) => authDataSource.logout(refreshToken),
+    mutationFn: async (refreshToken: string) => {
+      // BEFORE the session is cleared, because it needs the bearer token
+      // (invariant 73). Same class as the queued-mutation purge below: a push
+      // token is device-scoped state, and on a shared depot phone the next
+      // driver would otherwise see this one's job and payout notifications on
+      // the lock screen without unlocking anything.
+      //
+      // Best-effort — it must never be what stops a sign-out.
+      await unregisterThisDevice();
+      return authDataSource.logout(refreshToken);
+    },
     onSettled: () => {
       clearSession();
       queryClient.clear();

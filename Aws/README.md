@@ -1,6 +1,8 @@
 # AWS Handover Pack — Towing Platform
 
-**Purpose:** everything an AWS engineer needs to take the Towing platform (TowFleet fleet-owner console + shared NestJS backend) from "runs locally against Docker" to a deployed AWS environment — Phase 9 of [`docs/TowFleet-Implementation-Plan.md`](../docs/TowFleet-Implementation-Plan.md). You are assumed to have never seen this codebase.
+**Purpose:** everything an AWS engineer needs to take the Towing platform (TowFleet fleet-owner console + shared NestJS backend) from "runs locally against Docker" to a deployed AWS environment — Phase 9 of [`docs/TowFleet-Implementation-Plan-V2.md`](../docs/TowFleet-Implementation-Plan-V2.md) (the current plan; the V1 file it supersedes is still in `docs/` for history). You are assumed to have never seen this codebase.
+
+> **Status note (10 Aug 2026).** The AWS instructions in this pack are current, but the *project status* lines were written at Phase 4 and refreshed only where they were wrong. Where they are: **Track A phases 1–8 are complete** (realtime, compliance/queues, money, hardening) and **Track B phases 10–12 are complete** (multi-realm auth, driver KYC + admin console, and both mobile apps off mocks). Phase 9 now runs in two stages — **9a staging** (pinned to `desiredCount: 1`) comes first and is what the mobile apps need a reachable HTTPS origin for. See the plan for the current phase table.
 
 **Recommended reading order: 01 → 06.** Each document is self-contained but they build on each other — 01 gives context, 02 the target shape, 03–05 the subsystems, 06 the day-1/day-2 procedures.
 
@@ -8,7 +10,7 @@
 
 | File | What it is |
 |---|---|
-| [`01-project-overview.md`](01-project-overview.md) | The product, the monorepo, what exists today (Phases 1–4 done), what you are deploying, the AWS account unknowns, and the **Owners & contacts** table that ratifies every decision in this pack |
+| [`01-project-overview.md`](01-project-overview.md) | The product, the monorepo, what exists today (Track A 1–8 and Track B 10–12 done), what you are deploying, the AWS account unknowns, and the **Owners & contacts** table that ratifies every decision in this pack |
 | [`02-target-architecture.md`](02-target-architecture.md) | Spec §15 mapped to concrete AWS services; ECS service inventory; data-store usage; a line-by-line assessment of the `infrastructure/deploy-all.sh` CDK generator (what it covers, its 15-item gap list) |
 | [`03-database.md`](03-database.md) | RDS PostgreSQL 16 + PostGIS provisioning; how the 5 drizzle migrations work and how to run them on AWS; schema domain map; the invariants the database itself enforces; seed behavior |
 | [`04-runtime-environment.md`](04-runtime-environment.md) | Every process that must run, every env var each one reads (with build-time vs runtime binding), packaging state (Dockerfiles are placeholders), logging, graceful shutdown, statefulness caveats |

@@ -1,4 +1,4 @@
-# Track B Phase 12 — B0 acceptance chain, TowPartner half: login → KYC wizard
+# Track B Phase 12 — B0 acceptance chain, MiTow Partner half: login → KYC wizard
 # → 5 documents → submit → status screen shows pending.
 #
 # Login and the KYC status API run entirely against `authMockSource`/
@@ -19,12 +19,12 @@
 # are authored and reviewed for correctness, not run. The exact permission
 # and picker screens are OS/version-specific; expect to adjust the `tapOn`
 # targets below once this actually runs against a real emulator profile.
-appId: in.webcros.towpartner
+appId: in.mitow.partner
 ---
 - launchApp:
     clearState: true
 
-- assertVisible: "Drive with TowPartner"
+- assertVisible: "Drive with MiTow Partner"
 
 - tapOn: "98765 43210"
 - inputText: "9876543210"

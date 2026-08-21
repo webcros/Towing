@@ -16,18 +16,51 @@
  * always sum exactly)." Every function here is integer-in / integer-out.
  */
 
+import { z } from 'zod';
+import type { ServiceType } from './enums';
+
 export type Band = 'A' | 'B' | 'C';
 
-/** §3.3 launch percentages. The DB guardrail (`ck_bookings_commission_pct_guardrail`) is 5–10. */
+/**
+ * §3.3 launch percentages — the DEFAULTS the `commission_config` table is seeded
+ * with, not the runtime source of truth since Phase 14. A live estimate reads
+ * the table (admin-editable, §16.5); these are what the seed writes and what
+ * every unit test asserts against.
+ */
 export const BAND_PCT: Record<Band, number> = { A: 10, B: 8, C: 5 };
 
-export type PricingServiceType =
-  | 'tow'
-  | 'battery'
-  | 'flat_tyre'
-  | 'fuel'
-  | 'breakdown'
-  | 'accident_recovery';
+/**
+ * §3.3 guardrail: "admin edits are validated server-side against the floor/cap
+ * (5%/10% at launch); attempts outside the band are rejected and audited."
+ *
+ * These two numbers are enforced in THREE places on purpose, and all three must
+ * agree: `commissionPctSchema` below (422 at the edge), the
+ * `ck_commission_config_guardrail` CHECK on `commission_config` (backstop if a
+ * route ever forgets the schema), and `ck_bookings_commission_pct_guardrail` on
+ * `bookings.commission_pct`, which has existed since migration 0002. A config
+ * table permitted to hold 12% while the booking column rejects it is a runtime
+ * insert failure on the first booking after the edit, not a validation error the
+ * admin can see and correct.
+ */
+export const COMMISSION_PCT_FLOOR = 5;
+export const COMMISSION_PCT_CAP = 10;
+
+/** A commission percentage an admin is allowed to write. Two decimal places, `numeric(5,2)`. */
+export const commissionPctSchema = z
+  .number()
+  .min(COMMISSION_PCT_FLOOR)
+  .max(COMMISSION_PCT_CAP)
+  .multipleOf(0.01);
+
+/**
+ * The billable service types the fare engine bands on.
+ *
+ * Aliased to `ServiceType` rather than re-declared: this used to be an
+ * independent copy of the same six strings, so `service_type` could drift here
+ * without a single compile error. See `common/enums.ts` for why the enum stayed
+ * at six values while Appendix B's catalogue has nine.
+ */
+export type PricingServiceType = ServiceType;
 
 /** §3.3: service type + billed distance decide the band; accident is always ≥ B. */
 export function resolveBand(service: PricingServiceType, distanceKm: number): Band {
@@ -37,9 +70,37 @@ export function resolveBand(service: PricingServiceType, distanceKm: number): Ba
   return 'A';
 }
 
-/** §7: `PlatformEarning = Total × commission%`, rounded half-up to the paisa. */
+/**
+ * §7: `PlatformEarning = Total × commission%`, rounded half-up to the paisa.
+ *
+ * THE PERCENTAGE IS A PARAMETER, and that is the whole point of this function
+ * existing separately from `commissionPaise` below.
+ *
+ * Phase 14 made `commission_config` the runtime source of truth for §3.3's
+ * percentages — admins can move a band inside the 5–10 guardrail with no
+ * deploy. `commissionPaise(total, band)` multiplies by the hard-coded
+ * `BAND_PCT` constant instead, so anything locking a fare through it would
+ * silently ignore that edit and write economics the admin did not choose. That
+ * was harmless while nothing locked a commission (Phase 14's estimate omits it
+ * deliberately, §7.6) and becomes real money the moment Phase 15 creates a
+ * booking, which is why the split landed there.
+ *
+ * Live paths pass `rateCard.commissionPct[band]`. `BAND_PCT` remains the
+ * seed's and the unit tests' oracle.
+ */
+export function commissionPaiseAtPct(totalPaise: number, pct: number): number {
+  return Math.round((totalPaise * pct) / 100);
+}
+
+/**
+ * §7 commission at a band's LAUNCH DEFAULT percentage.
+ *
+ * Retained unchanged for the seed, the golden-fare test and every existing
+ * assertion. A live booking must use `commissionPaiseAtPct` with the configured
+ * percentage — see above.
+ */
 export function commissionPaise(totalPaise: number, band: Band): number {
-  return Math.round((totalPaise * BAND_PCT[band]) / 100);
+  return commissionPaiseAtPct(totalPaise, BAND_PCT[band]);
 }
 
 /**

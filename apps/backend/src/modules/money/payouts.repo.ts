@@ -6,7 +6,14 @@ import { DB, type Database } from '../../db/db.module';
 export interface PayoutRow {
   id: string;
   ownerId: string;
-  ownerType: 'fleet' | 'driver';
+  /**
+   * ALL THREE `wallet_owner_type` values. This was narrowed to
+   * `'fleet' | 'driver'` and reached via an unchecked cast in `toRow`, so a
+   * `'user'` row — which the column permits and `wallets` already stores —
+   * flowed through typed as something it is not. Harmless while nothing
+   * branched on it; Phase 13's recipient resolver does.
+   */
+  ownerType: 'user' | 'driver' | 'fleet';
   amount: string;
   status: PayoutStatus;
   routeRef: string | null;
@@ -21,7 +28,7 @@ function toRow(row: Record<string, unknown>): PayoutRow {
   return {
     id: row.id as string,
     ownerId: row.owner_id as string,
-    ownerType: row.owner_type as 'fleet' | 'driver',
+    ownerType: row.owner_type as 'user' | 'driver' | 'fleet',
     amount: row.amount as string,
     status: row.status as PayoutStatus,
     routeRef: (row.route_ref as string | null) ?? null,

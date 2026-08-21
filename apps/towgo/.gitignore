@@ -39,3 +39,14 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase SERVICE-ACCOUNT keys. These can send push — and call other Firebase
+# APIs — on our behalf, so they must never reach the repo. They belong outside
+# it entirely; the only place they get uploaded is the Expo dashboard.
+#
+# NOTE: google-services.json is NOT one of these and is deliberately NOT
+# ignored. It is a client config that ships inside the APK, carries no
+# secret, and the native build needs it committed.
+*-firebase-adminsdk-*.json
+service-account*.json
+serviceAccountKey*.json

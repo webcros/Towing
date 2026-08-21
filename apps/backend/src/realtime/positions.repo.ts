@@ -3,9 +3,9 @@ import type { FleetId } from '@towing/api-contracts';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { DB, type Database } from '../db/db.module';
 import { bookings, drivers, fleetTrucks, serviceZones } from '../db/schema';
+import { ACTIVE_JOB_STATUSES } from '../modules/bookings/booking-state-machine.service';
 
 /** Same set `DashboardService` calls active — a truck on one of these is "on job". */
-const ACTIVE_JOB_STATUSES = ['assigned', 'en_route', 'arrived', 'in_progress'] as const;
 
 export interface TruckRow {
   truckId: string;

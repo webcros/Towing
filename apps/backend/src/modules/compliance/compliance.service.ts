@@ -1,10 +1,7 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { FleetEventsService } from '../../common/events/fleet-events.service';
-import {
-  NOTIFICATIONS,
-  type NotificationPort,
-} from '../../common/notifications/notification.port';
+import { NotificationService } from '../../common/notifications/notification.service';
 import { QUEUE, type QueuePort } from '../../common/queue/queue.port';
 import { ENV, type Env } from '../../config/env';
 import { DB, type Database } from '../../db/db.module';
@@ -21,7 +18,7 @@ export class ComplianceService implements OnModuleInit {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(QUEUE) private readonly queue: QueuePort,
-    @Inject(NOTIFICATIONS) private readonly notifications: NotificationPort,
+    private readonly notifications: NotificationService,
     @Inject(ENV) private readonly env: Env,
     private readonly events: FleetEventsService,
   ) {}
@@ -54,16 +51,16 @@ export class ComplianceService implements OnModuleInit {
     // re-does the (already idempotent) database half for nothing.
     for (const target of result.notify) {
       try {
-        await this.notifications.notify({
-          to: target.fleetId,
-          channel: 'email',
-          template: 'fleet_compliance_expiring',
-          variables: {
-            plate: target.truckPlate,
-            docType: target.docType,
-            daysLeft: String(target.daysLeft),
-            expiresAt: target.expiresAt.toISOString(),
-          },
+        // `to: target.fleetId` until Phase 13 — a UUID in a field documented as
+        // "E.164 phone or email address". It printed fine against the log
+        // adapter and would have 400'd on every send the moment SES bound.
+        // The fleet's contact details now come from its owner's `users` row,
+        // resolved at delivery time by `RecipientResolverService`.
+        await this.notifications.emit('compliance.doc_expiring', {
+          fleetId: target.fleetId,
+          docType: target.docType,
+          plate: target.truckPlate,
+          daysLeft: target.daysLeft,
         });
       } catch (err) {
         this.logger.warn(

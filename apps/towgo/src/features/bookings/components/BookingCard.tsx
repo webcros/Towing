@@ -3,11 +3,11 @@ import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Card, Text, Divider, Skeleton, StatusBadge } from '@towing/ui';
 import { Star } from '@/icons';
-import { formatINR } from '@/utils/format';
-import { STATUS_META } from '../statusMeta';
+import { formatBookingDate, formatBookingTime, formatPaise } from '@/utils/format';
+import { SCHEDULED_META, STATUS_META } from '../statusMeta';
 import { RouteTimeline } from './RouteTimeline';
 import { DateTime } from './DateTime';
-import type { Booking } from '../types';
+import { isScheduled, type Booking } from '../types';
 
 export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: () => void }) {
   const theme = useTheme();
@@ -19,7 +19,7 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
         radius="sheet"
         padding={theme.spacing.lg}
         onPress={onPress}
-        accessibilityLabel={`${booking.originLabel} to ${booking.destinationLabel}, ${status.label}, ${formatINR(booking.fare)}`}
+        accessibilityLabel={`${booking.originLabel} to ${booking.destinationLabel}, ${status.label}, ${formatPaise(booking.farePaise)}`}
         style={{ gap: theme.spacing.lg }}
       >
         {/* Route timeline + trip info */}
@@ -50,7 +50,10 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
               >
                 {booking.originLabel}
               </Text>
-              <DateTime date={booking.date} time={booking.time} />
+              <DateTime
+                date={formatBookingDate(booking.createdAt)}
+                time={formatBookingTime(booking.createdAt)}
+              />
             </View>
 
             <Text
@@ -73,24 +76,46 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
           <View
             style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg, flex: 1 }}
           >
-            <Image source={booking.truckImage} resizeMode="contain" style={{ width: 90, height: 56 }} />
+            {booking.truckImage ? (
+              <Image
+                source={{ uri: booking.truckImage }}
+                resizeMode="contain"
+                style={{ width: 90, height: 56 }}
+              />
+            ) : (
+              // The backend has no truck-image pipeline yet, so this is the
+              // normal case rather than an error state.
+              <View
+                style={{
+                  width: 90,
+                  height: 56,
+                  borderRadius: theme.radii.input,
+                  backgroundColor: theme.colors.surface1,
+                }}
+              />
+            )}
             <View style={{ flex: 1 }}>
+              {/*
+                Driver identity is null until assignment — §11.9 forbids showing
+                it before then, so a searching trip legitimately has no plate,
+                no name and no rating.
+              */}
               <Text variant="subtitle" numberOfLines={1}>
-                {booking.vehiclePlate}
+                {booking.vehiclePlate ?? 'Finding your driver'}
               </Text>
-              <Text
-                color="secondary"
-                numberOfLines={1}
-                variant="body"
-              >
-                {booking.driverName}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <Star size={15} color={theme.colors.star} fill={theme.colors.star} />
-                <Text variant="caption" tabular>
-                  {booking.driverRating.toFixed(1)}
+              {booking.driverName ? (
+                <Text color="secondary" numberOfLines={1} variant="body">
+                  {booking.driverName}
                 </Text>
-              </View>
+              ) : null}
+              {booking.driverRating !== null ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <Star size={15} color={theme.colors.star} fill={theme.colors.star} />
+                  <Text variant="caption" tabular>
+                    {booking.driverRating.toFixed(1)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -98,7 +123,7 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
               Amount
             </Text>
             <Text variant="subtitle" tabular>
-              {formatINR(booking.fare)}
+              {formatPaise(booking.farePaise)}
             </Text>
           </View>
         </View>
@@ -106,7 +131,12 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress?: 
 
       {/* Floating status badge — pokes above the top-right corner (Figma). */}
       <View pointerEvents="none" style={{ position: 'absolute', top: -10, right: 12 }}>
-        <StatusBadge label={status.label} tone={status.tone} />
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {isScheduled(booking) ? (
+            <StatusBadge label={SCHEDULED_META.label} tone={SCHEDULED_META.tone} />
+          ) : null}
+          <StatusBadge label={status.label} tone={status.tone} />
+        </View>
       </View>
     </View>
   );

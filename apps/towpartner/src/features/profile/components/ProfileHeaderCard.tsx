@@ -12,6 +12,9 @@ import { Pressable } from '@/motion';
 
 const AVATAR = 85;
 
+/** Rendered when `profile.avatar` is null — the API returns a URL or nothing, never an asset. */
+const AVATAR_PLACEHOLDER = require('@/assets/illustrations/driver-avatar.png');
+
 /**
  * Full-width contact row. The Figma squeezes phone + email side-by-side at
  * 8–9px; stacked rows keep the same content readable without overflow.
@@ -78,7 +81,7 @@ export function ProfileHeaderCard({
             }}
           >
             <Image
-              source={profile.avatar}
+              source={profile.avatar ? { uri: profile.avatar } : AVATAR_PLACEHOLDER}
               resizeMode="contain"
               style={{ width: 78, height: 88, marginBottom: -2 }}
             />

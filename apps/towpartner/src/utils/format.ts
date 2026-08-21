@@ -29,3 +29,33 @@ export function formatSignedPercent(value: number): string {
   const body = Number.isInteger(abs) ? `${abs}` : abs.toFixed(1);
   return `${sign}${body}%`;
 }
+
+/**
+ * A short "how long ago" label for the notification centre, e.g. "12m", "3h",
+ * "2d", then an absolute date past a week.
+ *
+ * Hand-rolled rather than `Intl.RelativeTimeFormat` for the same reason
+ * `formatINR` is: Hermes' Intl support is unreliable across the RN versions
+ * this app targets, and a formatter that silently returns the wrong string on
+ * one engine is worse than a plain one that is the same everywhere.
+ */
+export function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return 'now';
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+
+  const date = new Date(then);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${date.getDate()} ${months[date.getMonth()]}`;
+}

@@ -6,8 +6,8 @@ import { istDayStart } from '../../common/time/ist';
 import { DB, type Database } from '../../db/db.module';
 import { bookings, drivers, fleetTrucks, wallets, walletTransactions } from '../../db/schema';
 import { AlertsService } from '../compliance/alerts.service';
+import { ACTIVE_JOB_STATUSES } from '../bookings/booking-state-machine.service';
 
-const ACTIVE_JOB_STATUSES = ['assigned', 'en_route', 'arrived', 'in_progress'] as const;
 const CACHE_TTL_SECONDS = 15;
 
 @Injectable()

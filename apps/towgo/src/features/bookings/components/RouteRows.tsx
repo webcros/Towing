@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
-import { addMinutesToTimeLabel } from '@/utils/format';
+import { addMinutesToTimeLabel, formatBookingTime } from '@/utils/format';
 import { ROW_GAP, ROW_GUTTER } from '@/components/DetailRow';
 import type { BookingDetail, RouteTone } from '../types';
 
@@ -96,12 +96,12 @@ export function RouteRows({ booking }: { booking: BookingDetail }) {
       <Stop
         marker={<OriginMarker tone={booking.routeTone} />}
         address={booking.originLabel}
-        time={booking.time}
+        time={formatBookingTime(booking.createdAt)}
       />
       <Stop
         marker={<DestinationMarker />}
         address={booking.destinationLabel}
-        time={addMinutesToTimeLabel(booking.time, booking.durationMinutes)}
+        time={addMinutesToTimeLabel(formatBookingTime(booking.createdAt), booking.durationMinutes ?? 0)}
       />
     </View>
   );

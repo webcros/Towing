@@ -2,7 +2,7 @@
 # tap if already granted) and pick the first photo in the library. Referenced
 # by `driver-kyc-submit.yaml` once per document. OS-version-specific — see
 # that file's header comment.
-appId: in.webcros.towpartner
+appId: in.mitow.partner
 ---
 - runFlow:
     when:

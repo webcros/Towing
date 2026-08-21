@@ -91,11 +91,26 @@ describe('files controller (/v1/files)', () => {
     const key = '../../etc/passwd';
     const { sig, exp } = signFileUrl(env.FILE_SIGNING_SECRET, 'GET', key, 60);
 
+    // The `..` segments MUST be sent percent-encoded. Superagent builds its
+    // request path with `new URL()`, whose WHATWG parser collapses a raw
+    // `/v1/files/../../etc/passwd` down to `/etc/passwd` before it ever leaves
+    // the client — that never reaches this controller, so it 404s as an
+    // unmatched Nest route and the assertion below would pass with
+    // `resolveUploadsPath` deleted entirely. Encoded, the path survives intact
+    // and `extractKey`'s `decodeURIComponent` restores the exact key the
+    // signature was minted for, so verification passes and the traversal guard
+    // is the only thing left to catch it — which is the point of the test.
+    const encoded = key.split('/').map(encodeURIComponent).join('%2F');
+
+    const res = await request(app.getHttpServer())
+      .get(`/v1/files/${encoded}?exp=${exp}&sig=${sig}`)
+      .expect(404);
+
     // Not a 403: the signature checks out (it was minted for this exact key),
     // which is exactly the case the traversal guard has to catch on its own.
-    await request(app.getHttpServer())
-      .get(`/v1/files/${key}?exp=${exp}&sig=${sig}`)
-      .expect(404);
+    // Asserting the message distinguishes the controller's own 404 from Nest's
+    // route-not-found 404 — the two are indistinguishable by status alone.
+    expect(res.body.error.message).toBe('File not found');
   });
 
   it('404s a key that resolves inside the uploads root but does not exist', async () => {

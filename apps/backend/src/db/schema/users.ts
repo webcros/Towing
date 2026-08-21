@@ -1,5 +1,5 @@
-import type { VehicleCategory } from '@towing/api-contracts';
-import { boolean, doublePrecision, index, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import type { SubjectNotificationPrefs, VehicleCategory } from '@towing/api-contracts';
+import { boolean, doublePrecision, index, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { primaryId, timestamps } from './columns';
 import { accountStatusEnum } from './enums';
 
@@ -15,6 +15,20 @@ export const users = pgTable(
     defaultLat: doublePrecision('default_lat'),
     defaultLng: doublePrecision('default_lng'),
     status: accountStatusEnum('status').notNull().default('active'),
+    /**
+     * §12.3 per-user channel opt-outs (Phase 13). Only the categories a person
+     * may legally switch off have a key — transactional and safety rows are
+     * unsuppressible by construction, not by a default that could be flipped.
+     *
+     * jsonb rather than columns for the same reasons `fleets.notification_prefs`
+     * is: the list is product-driven and grows, it is never a query predicate,
+     * and adding a preference must not be a migration. Unknown keys are dropped
+     * on write and missing keys default on read.
+     */
+    notificationPrefs: jsonb('notification_prefs')
+      .notNull()
+      .default({})
+      .$type<Partial<SubjectNotificationPrefs>>(),
     ...timestamps,
   },
   (t) => [index('idx_users_status').on(t.status)],

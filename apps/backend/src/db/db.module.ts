@@ -11,6 +11,20 @@ import * as schema from './schema';
 
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
 
+/** The handle drizzle hands a `db.transaction(async (tx) => …)` callback. */
+export type DatabaseTransaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/**
+ * Anything queries can run on — the pool or a transaction.
+ *
+ * Services that must work BOTH inside a caller's transaction and standalone
+ * take this. `BookingStateMachineService.transition` is the case that forced
+ * it: a transition is never the only thing happening (Phase 17 assigns a driver
+ * and locks a truck alongside it), so it has to accept the caller's `tx` — but
+ * `Database` is the pool type and a transaction handle is not assignable to it.
+ */
+export type DatabaseExecutor = Database | DatabaseTransaction;
+
 /**
  * The read handle is deliberately the SAME TYPE as the write handle. A brand
  * would infect every helper signature for no runtime safety; the enforcement

@@ -1,13 +1,76 @@
 # TowGo (Moveyo) — To Be Done
 
 Running backlog of everything deferred, stubbed, or suggested during development.
-Last updated: 2026-07-19.
+Last updated: 2026-08-20, for Track B Phase 17.
+
+> **Read the first bullet of "✅ Recently done" below before anything else.** Phase 12 (10 Aug 2026)
+> superseded large parts of this file — real backend, real phone-OTP auth and real on-device storage
+> all landed. The rest of the file was *not* swept line by line, so where a later section contradicts
+> that note (or [OVERVIEW.md](OVERVIEW.md) / [Detailed-Overview.md](Detailed-Overview.md), which are
+> kept current every phase), the note and those two win.
 
 > Legend: 🔜 next up · 🧩 screen to build · 🔌 stub/no-op to wire · ⚙️ backend/integration · 📦 native/infra (needs dev build or keys) · ❓ open decision · ✨ polish
 
 ---
 
 ## ✅ Recently done
+- **Track B Phase 17 (20 Aug 2026) closed the matching loop, and with it several items below.**
+  Now real: `useSearchSimulation.ts` — a pure timer that invented a driver after six seconds — is
+  **deleted**, and `SearchingScreen` reads actual wave, radius and drivers-contacted off a
+  `/customer` socket merged with the REST poll; its retry button, previously `notReady`, posts a real
+  re-search. TowPartner gained `OfferTakeoverScreen` (`fullScreenModal`, back gesture disabled,
+  countdown ring driven by the server's absolute `expiresAt`, haptics at arrival and at five seconds,
+  gross → commission → net) and `AssignedJobScreen`, so **Accept no longer lands on
+  `PlaceholderScreen`**; `JobOffer.expiresInSeconds` and its local countdown are gone; the offer's
+  single unlabelled fare — which was the gross — is replaced by the earnings triple; `NewJobScreen`'s
+  Decline now tells the server instead of hiding the card locally (it was holding the driver's offer
+  lock for the full twenty seconds); and `offersDataSource` finally has its REST half.
+
+  **Still true, and the reason nothing has been observed:** no dev-client or EAS build exists for
+  either app, so the takeover, the ring, the haptics and the high-priority offer push have **never
+  run**, and the two-phone acceptance chain has not been performed. The offer also has **no
+  distinctive sound** — deliberately, because Android freezes a notification channel's sound
+  permanently on first creation, so a placeholder would be unfixable on every phone that had already
+  installed it (`17i` in [ToBeDoneEhsan.md](ToBeDoneEhsan.md)).
+
+- **Track B Phase 16 (19 Aug 2026) gave the platform a supply side, and closed several items below.**
+  Now real: the customer home map draws genuinely nearby drivers (anonymised — count and ~100 m
+  coarsened positions, no name/plate/rating, because §11.9 forbids identity before assignment);
+  `BookLocationScreen` has real debounced autocomplete and "Select on map" opens a new
+  `MapPickerScreen`; `MapPreview` renders `react-native-maps` behind its existing prop seam with **no
+  consumer changes**; TowPartner's online toggle calls the real backend behind `KycApprovedGuard` and
+  starts an Android foreground service / iOS background-mode location task with an MMKV buffer that
+  flushes in order on reconnect; `NewJobScreen`'s "Enable Location" button — which flipped a `useState`
+  and requested no OS permission at all — asks for real permission; and `driverStatusStore` stopped
+  being the source of truth and became a mirror of the server (`toggle()` is gone).
+
+  **Still true, and the reason nothing has been observed:** the maps need a Google Maps SDK key on
+  Android (checklist item 7) — without one `<MapPreview />` deliberately keeps the placeholder rather
+  than rendering a blank grey grid with a Google watermark, and address search runs on a 21-entry
+  local gazetteer instead of Places. iOS renders maps today (Apple Maps needs no key), which nobody
+  has seen either: **no dev-client or EAS build has ever been produced for either app**, so
+  `react-native-maps`, `expo-location`, `expo-task-manager` and `socket.io-client` are all installed,
+  typechecked, bundle-clean and prebuild-clean, and have never executed. The foreground service, the
+  Doze behaviour, the tunnel buffer and the §11.10 6–8 %/h battery target are unverified. The Play
+  background-location declaration has not been filed (checklist item 3).
+
+- **Track B Phase 13 (10 Aug 2026) landed the notification spine.** Things this file listed as
+  stubbed are now real: the bell in `AppHeader` (documented in its own source as a no-op) opens a
+  working notification centre; `notificationPrefsStore` — four in-memory booleans that reset on every
+  launch — is **deleted**, and the settings screen reads and writes the server. Both apps register a
+  device for push on sign-in and unregister on logout. TowPartner has a high-priority Android
+  notification channel (`job-offer-v1`), created deliberately unused so Phase 17's 20-second job
+  offers are not the first time it runs.
+
+  **Still true, and the reason nothing has been delivered:** push needs a Firebase project (Android)
+  and an APNs key (iOS), SMS needs MSG91 + DLT template registration, WhatsApp needs a Meta BSP and
+  template approval, email needs SES production access. None exists — every channel runs on a log
+  adapter that records what it would have sent. Push additionally needs a dev-client or EAS build,
+  because **Expo Go cannot mint a push token at all**, and no build has ever been produced for either
+  app (TowPartner does not even have an EAS project id — `npx eas init` is item `0viii` in
+  [ToBeDoneEhsan.md](ToBeDoneEhsan.md)). So: written, typechecked, bundle-clean, prebuild-clean,
+  covered by 577 backend tests — and never once observed on a phone.
+
 - **Track B Phase 12 (10 Aug 2026) superseded a lot of this file** — real backend, real auth, real
   on-device storage landed for both mobile apps. Specifically: Splash/Auth/OTP/Profile-setup (§9.1.1-3,
   listed below as "still to build") are built; `profileStore`/`vehiclesStore`/`savedLocationsStore`
@@ -22,9 +85,9 @@ Last updated: 2026-07-19.
 - **Live Tracking screen** (§9.1.7) — built (v1): map card with route (driver → pickup), driver info card (photo/rating/trips/plate/call/chat), "Driver is on the way / ETA" card, Request Details + Cancel, safety banner. Searching auto-advances here on match.
 
 ## 🔜 Tracking — remaining pieces (v1 stubs)
-- **Live truck movement** — interpolated/animated marker along the route + **ETA countdown** (needs real Maps + Socket.io; currently a static stylized route and "12 min").
+- **Live truck movement** — interpolated/animated marker along the route + **ETA countdown**. *(Phase 16 supplied the two things this was blocked on — a real map behind `MapPreview` and a live driver position stream — so what remains is genuinely Phase 18's own work: the route polyline, bearing rotation, the pan-pause/re-center camera and the ETA. The tracking screen is still a static stylized route and "12 min".)*
 - **Booking OTP** — show the one-time code to hand the driver on arrival.
-- **Status timeline** — Searching → Assigned → En route → Arrived → In progress → Completed (currently only "Driver is on the way").
+- **Status timeline** — Searching → Assigned → En route → Arrived → In progress → Completed (currently only "Driver is on the way"). *(Phase 17 made `assigned` real and pushes it over the `/customer` socket; the rest of the timeline is Phase 18's.)*
 - **Share-trip link** — read-only public link via WhatsApp/SMS.
 - **Real driver + photo** — from backend (currently `assignedDriverMock` + generic avatar).
 - **Call / chat / Cancel** — wire to real calling, in-app chat, and policy-aware cancellation (§3.5).
@@ -40,8 +103,8 @@ Last updated: 2026-07-19.
 - **Home**: hamburger menu, notification bell, quick actions (Schedule a Tow, Roadside Assistance, 24/7 Support), Safety banner → all no-op. Only "Book a Tow" is wired.
 - **Services**: service cards + "Contact Support" → no-op.
 - **Booking Details**: driver Call / Message → no-op (no driver phone in the data model; `expo-linking` isn't a dependency). Only the `completed` status is exercised — the pill and closing note are already status-driven (`statusMeta.ts`), but there are no `cancelled`/`in_progress`/`scheduled` mock rows, and an `in_progress` booking has no "Track" CTA (TrackingScreen reads `useBookingStore`, not a bookingId).
-- **Booking flow**: "Select on map", "Add stops", schedule picker ("Pickup now"), "For someone else" (contact entry), tow-type "View All", "Add Note" → no-op.
-- **Searching**: "Get help", Call/Message → no-op (Call/Message wait on Tracking).
+- **Booking flow**: ~~"Select on map"~~ *(real as of Phase 16 — opens `MapPickerScreen`; disabled on Android until a Maps key exists)*, "Add stops", tow-type "View All" → no-op. *(The schedule picker, "For someone else" and "Add Note" became real in Phase 15.)*
+- **Searching**: "Get help", Call/Message → no-op (Call/Message wait on Tracking). *(The retry and the wave/radius/count display became real in Phase 17.)*
 - **AppHeader** menu/bell across tabs → no-op.
 - **Account sub-screens** stubs:
   - **Personal Information / Add Vehicle**: change-photo + "Upload RC" → no-op (needs `expo-image-picker`).
@@ -53,7 +116,7 @@ Last updated: 2026-07-19.
 
 ## ⚙️ Backend & integrations (all data is mocked behind swappable sources)
 - **Real REST API** — replace mock data sources (`homeDataSource`, `bookingsDataSource` incl. the new `getBooking(id)`, `bookingsMock`/`bookingDetailsMock`, `towTypes`, `recentLocations`, `nearbyDriversMock`, `useSearchSimulation`) with the NestJS backend. The detail-only fields (`reference`, `towTypeId`, `durationMinutes`, `distanceKm`, `paymentMethod`, `driverPhoto`, `driverTrips`) are invented and await a real API contract; `bookingsMock` is currently an alias of `bookingDetailsMock`, so a list row carries detail fields at runtime that the `Booking` type hides — never cast a `Booking` to a `BookingDetail`.
-- **Socket.io** — live dispatch + driver tracking + status events (§6, §11).
+- ~~**Socket.io** — live dispatch~~ *(real as of Phase 17: `/customer` namespace, `search:progress` + `booking:status`, single-use handshake ticket, REST poll behind it)*. Driver tracking and the remaining status events are Phase 18's.
 - **Fare estimate API** (§7.6) — currently the selected tow-type's static price.
 - **Auth** — JWT/refresh, OTP, session (MMKV).
 - **Google Places autocomplete** — for the pickup/drop fields (currently plain inputs + mocked recents).
@@ -63,12 +126,13 @@ Last updated: 2026-07-19.
 ## 📦 Native / infra (needs an EAS dev build or API keys — not available in Expo Go)
 - **Google Maps** (`react-native-maps`) — drop into the `MapPreview` facade; needs Android/iOS Maps API keys. Today: styled placeholder + stylized route/driver/user markers.
 - **MMKV** — persist the TanStack Query cache (storage interface already abstracts it; currently in-memory).
-- **Haptics** (`expo-haptics`) — success haptic on match, light tick on search start, etc. (§10.7).
+- **Haptics** (`expo-haptics`) — success haptic on match, light tick on search start, etc. (§10.7). *(Installed and used in both apps since Phase 12/17 — but never felt, because no build exists.)*
+- **A licensed job-offer alert sound** — the one asset that cannot be written. Blocked on `17i` in [ToBeDoneEhsan.md](ToBeDoneEhsan.md), and **cheaper before launch than after**, because Android freezes a channel's sound on first creation.
 - **Reanimated / Moti** — for gesture-driven bottom sheets and richer motion (currently RN `Animated` — fine for radar/skeletons; sheets are static).
 - **EAS dev build** — `eas build --profile development` (project "moveyo", id `55703152-…`) to exercise the above on-device.
 
 ## ❓ Open decisions
-- **App name**: slug/bundle = **moveyo**, but the logo + spec still say **TowGo**. Finalize the product name, then align logo/spec/workspace folder (`apps/towgo`, pkg `towgo`).
+- **App name**: settled as **MiTow**. Bundle ids are now `in.mitow.customer` / `in.mitow.partner` (renamed 21 Aug 2026, permanent), and the customer app's user-visible strings read MiTow. Still on the old name: the EAS `slug`/`owner`/`scheme` (`moveyo` — renaming makes a *new* EAS project), the driver app's display name (`TowPartner`), the backend/theme strings, and the workspace folder (`apps/towgo`, pkg `towgo`). See the brand section in [ToBeDoneEhsan.md](ToBeDoneEhsan.md).
 - **Dark mode**: app is locked to light (Figma is light-only). Re-enable `system` when dark designs exist.
 - Whether to keep the leftover **nearby-drivers data layer** (`features/home/api`) — retained as the seam for real map markers even though its Home UI was replaced.
 

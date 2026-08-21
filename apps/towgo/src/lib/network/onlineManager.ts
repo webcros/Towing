@@ -1,5 +1,6 @@
+import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import { onlineManager } from '@tanstack/react-query';
+import { focusManager, onlineManager } from '@tanstack/react-query';
 
 /**
  * Bridge device connectivity into TanStack Query's onlineManager so queries
@@ -11,5 +12,19 @@ export function initOnlineManager(): void {
       setOnline(state.isConnected !== false);
     });
     return unsubscribe;
+  });
+
+  /**
+   * App-foreground → TanStack Query's focusManager (Phase 13).
+   *
+   * TowPartner has had this since Phase 12; TowGo's bridge was NetInfo-only, so
+   * nothing refetched when the app came back to the foreground — only when the
+   * network changed. That is fine for a screen you navigate to, and wrong for
+   * the notification bell, whose whole job is to be current the moment you look
+   * at it. A push that arrives while the app is backgrounded is exactly the
+   * case where the count is stale and no network event fires.
+   */
+  AppState.addEventListener('change', (status) => {
+    focusManager.setFocused(status === 'active');
   });
 }

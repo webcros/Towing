@@ -1,0 +1,26 @@
+# Track B Phase 13 — accepting the push permission on the driver app.
+#
+# MiTow Partner has NO priming sheet of its own this phase: a driver who has just
+# been told their livelihood depends on receiving job offers does not need
+# convincing, and the B2 slice does not call for one. The OS prompt is
+# therefore reached directly from the notification centre's first mount.
+#
+# ⚠ OS-VERSION-SPECIFIC, and never executed — see the TowGo twin.
+appId: in.mitow.partner
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Enter your mobile number"
+- tapOn: "98765 43210"
+- inputText: "9876543210"
+- tapOn: "Send OTP"
+- assertVisible: "Enter the code"
+- tapOn: "••••••"
+- inputText: "123456"
+
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"

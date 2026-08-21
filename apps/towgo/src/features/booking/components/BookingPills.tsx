@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, type IconComponent } from '@towing/ui';
 import { Clock, User, ChevronDown } from '@/icons';
 import { useBookingStore } from '../store/bookingStore';
+import { formatBookingDate, formatBookingTime } from '@/utils/format';
+import { SchedulePickerSheet } from './SchedulePickerSheet';
+import { ContactSheet } from './BookingExtrasSheets';
 import { Pressable } from '@/motion';
 
 function Pill({
@@ -44,21 +47,51 @@ function Pill({
 }
 
 export function BookingPills() {
-  const scheduleMode = useBookingStore((s) => s.scheduleMode);
-  const bookingFor = useBookingStore((s) => s.bookingFor);
-  const toggleBookingFor = useBookingStore((s) => s.toggleBookingFor);
+  const scheduledAt = useBookingStore((s) => s.scheduledAt);
+  const setScheduledAt = useBookingStore((s) => s.setScheduledAt);
+  const contact = useBookingStore((s) => s.contact);
+  const setContact = useBookingStore((s) => s.setContact);
+
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const openSchedule = useCallback(() => setScheduleOpen(true), []);
+  const closeSchedule = useCallback(() => setScheduleOpen(false), []);
+  const openContact = useCallback(() => setContactOpen(true), []);
+  const closeContact = useCallback(() => setContactOpen(false), []);
 
   return (
     <View style={{ flexDirection: 'row', gap: 10 }}>
       <Pill
         icon={Clock}
-        label={scheduleMode === 'now' ? 'Pickup now' : 'Scheduled'}
-        onPress={() => {}}
+        label={
+          scheduledAt
+            ? `${formatBookingDate(scheduledAt)}, ${formatBookingTime(scheduledAt)}`
+            : 'Pickup now'
+        }
+        onPress={openSchedule}
       />
+      {/*
+        This pill used to TOGGLE a label and nothing else — `bookingFor` reached
+        no request, so "for someone else" was a word on a screen. It now opens
+        the sheet that captures who the driver will actually meet.
+      */}
       <Pill
         icon={User}
-        label={bookingFor === 'me' ? 'For me' : 'For someone else'}
-        onPress={toggleBookingFor}
+        label={contact ? contact.name : 'For me'}
+        onPress={openContact}
+      />
+
+      <SchedulePickerSheet
+        visible={scheduleOpen}
+        scheduledAt={scheduledAt}
+        onSelect={setScheduledAt}
+        onClose={closeSchedule}
+      />
+      <ContactSheet
+        visible={contactOpen}
+        contact={contact}
+        onSave={setContact}
+        onClose={closeContact}
       />
     </View>
   );

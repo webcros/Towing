@@ -1,7 +1,5 @@
 import type { DriverProfile } from '../types';
 
-const avatar = require('@/assets/illustrations/driver-avatar.png');
-
 /** Driver profile seed (Figma driver "Profile"). */
 export const profileMock: DriverProfile = {
   name: 'Rahul Sharma',
@@ -9,7 +7,8 @@ export const profileMock: DriverProfile = {
   verified: true,
   phone: '+91 9876543210',
   email: 'rahul.sharma@gmail.com',
-  avatar,
+  // No uploaded photo — ProfileHeaderCard renders its bundled placeholder.
+  avatar: null,
   stats: {
     jobsCompleted: 128,
     rating: 4.8,

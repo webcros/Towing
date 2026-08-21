@@ -57,6 +57,7 @@ export {
   LogOut,
   Mail,
   Camera,
+  Download,
   Trash2,
   Briefcase,
   Wallet,

@@ -1,20 +1,28 @@
-export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'email';
+import type { NotificationChannel } from '@towing/api-contracts';
+import type { ChannelResult, ChannelSendParams } from './channel.port';
 
-export interface NotifyParams {
-  /** E.164 phone or email address depending on channel. */
-  to: string;
-  channel: NotificationChannel;
-  /** Template key (spec §12: DLT-registered templates, content managed in admin). */
-  template: string;
-  variables?: Record<string, string>;
-}
+export type { NotificationChannel };
 
 /**
- * Outbound notification seam (spec §12). Real fan-out goes via SQS + provider
- * adapters (MSG91/FCM/SES) later; the log adapter keeps flows honest now.
+ * The outbound seam (§12). ONE implementation —
+ * `NotificationRouterAdapter` — which dispatches to the four `ChannelPort`s.
+ *
+ * ⚠ NOTHING OUTSIDE `src/common/notifications/**` MAY INJECT THIS.
+ *
+ * Before Phase 13 four domain services called `notify()` directly with a
+ * hand-assembled `to`, and two of them passed a UUID into a field documented as
+ * "E.164 phone or email address" (`compliance.service.ts` passed a fleet id,
+ * `payouts.service.ts` an owner id). That was harmless against the log adapter
+ * and silent non-delivery the instant a real one bound.
+ *
+ * Producers now call `NotificationService.emit(event, payload)` with DOMAIN
+ * IDS, and a trigger's `resolve()` is the only thing in the system that turns a
+ * subject into an address. `notification-port-usage.spec.ts` fails the build on
+ * any import of `NOTIFICATIONS` outside this directory, which is what makes
+ * invariant 69 enforceable rather than aspirational.
  */
 export interface NotificationPort {
-  notify(params: NotifyParams): Promise<void>;
+  notify(channel: NotificationChannel, params: ChannelSendParams): Promise<ChannelResult>;
 }
 
 export const NOTIFICATIONS = Symbol('NOTIFICATIONS');

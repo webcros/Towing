@@ -71,6 +71,41 @@
       "when": 1786356740043,
       "tag": "0009_mobile_foundations_privacy",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786374017175,
+      "tag": "0010_notifications_spine",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786900598063,
+      "tag": "0011_pricing_and_dispatch_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786904827849,
+      "tag": "0012_booking_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787328000000,
+      "tag": "0013_driver_presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787414400000,
+      "tag": "0014_dispatch_engine",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,38 @@
+# Track B Phase 13 — the customer notification centre, hermetic.
+#
+# Runs against `notificationsMockSource` (no backend, no push, no Firebase),
+# the same "mocks-on Maestro flows retained as hermetic CI path" rule Phase 12
+# established. Requires `EXPO_PUBLIC_USE_MOCKS` unset or `true`.
+#
+# What it proves: the bell — documented as a no-op until Phase 13 — opens the
+# centre, unread rows render, and "mark all read" clears the badge.
+#
+# ⚠ NEVER EXECUTED. No EAS or dev-client build exists for this app, so no
+# Maestro flow in this repo has ever run. Reviewed against the screens as
+# written; that is all.
+appId: in.mitow.customer
+---
+- runFlow: customer-login.yaml
+
+# The bell lives in `AppHeader` on Home/Bookings/Services. Its accessibility
+# label switches to "Notifications, unread" when the dot is showing, which is
+# the mock fixture's default state (2 of 3 rows unread).
+- assertVisible:
+    id: "Notifications, unread"
+- tapOn:
+    id: "Notifications, unread"
+
+- assertVisible: "Notifications"
+- assertVisible: "Your driver is verified"
+- assertVisible: "Payment received"
+
+- tapOn: "Mark all read"
+
+# The affordance disappears with the last unread row — the same condition that
+# hides the bell's dot.
+- assertNotVisible: "Mark all read"
+
+- tapOn:
+    id: "Back"
+- assertVisible:
+    id: "Notifications"

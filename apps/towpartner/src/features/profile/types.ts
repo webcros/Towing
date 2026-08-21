@@ -1,5 +1,3 @@
-import type { ImageSourcePropType } from 'react-native';
-
 export type DriverProfileStats = {
   jobsCompleted: number;
   rating: number;
@@ -15,6 +13,11 @@ export type DriverProfile = {
   verified: boolean;
   phone: string;
   email: string;
-  avatar: ImageSourcePropType;
+  /**
+   * A signed-GET URL from the server, or `null` when the driver has no photo —
+   * never a bundled `require()` asset. The placeholder illustration is a
+   * rendering fallback (`ProfileHeaderCard`), not a value the API can return.
+   */
+  avatar: string | null;
   stats: DriverProfileStats;
 };

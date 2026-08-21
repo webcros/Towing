@@ -1,4 +1,15 @@
-import { boolean, index, integer, numeric, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { SubjectNotificationPrefs } from '@towing/api-contracts';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { geographyPoint } from '../geography';
 import { primaryId, timestamps } from './columns';
 import {
@@ -47,6 +58,12 @@ export const drivers = pgTable(
     // §3.2 Band C opt-in — long hauls need a willing driver, not a pricier plan.
     longDistanceEnabled: boolean('long_distance_enabled').notNull().default(false),
 
+    /**
+     * Last known position, flushed from the ping pipeline every ~30s and on
+     * go-online/offline (§11.2's "only samples and final positions are
+     * persisted"). Redis holds the live fix; this is the authoritative copy that
+     * survives a Redis flush and backs the §19.2 degraded candidate read.
+     */
     currentLocation: geographyPoint('current_location'),
     lastPingAt: timestamp('last_ping_at', { withTimezone: true }),
 
@@ -69,17 +86,40 @@ export const drivers = pgTable(
      */
     kycSubmittedAt: timestamp('kyc_submitted_at', { withTimezone: true }),
     /**
-     * §6.1 keys the presence hot set by zone (Phase 16). Schema-only seam for
-     * now, same standing as `admin_users.twofa_secret` — nothing writes it until
-     * the presence work lands.
+     * §6.1 partitions the presence hot set by zone. Written by
+     * `POST /v1/driver/online` (Phase 16), which point-in-polygons the driver's
+     * current fix against `service_zones` and refuses to bring them online if it
+     * resolves to nothing — a driver in no zone is in no GEO set, i.e. online in
+     * their own UI and invisible to every search.
+     *
+     * CLEARED ON GO-OFFLINE, unlike `current_location`. The zone is a claim
+     * about availability and stops being true the moment the shift ends; the
+     * position is a fact about the world that stays true and is what the §19.2
+     * PostGIS fallback reads.
      */
     currentZoneId: uuid('current_zone_id').references(() => serviceZones.id, {
       onDelete: 'set null',
     }),
+    /**
+     * §12.3 per-driver channel opt-outs (Phase 13) — same shape and same
+     * reasoning as `users.notification_prefs`. `weeklySummary` is the key that
+     * matters here; Phase 19's summary job is its only reader.
+     */
+    notificationPrefs: jsonb('notification_prefs')
+      .notNull()
+      .default({})
+      .$type<Partial<SubjectNotificationPrefs>>(),
     ...timestamps,
   },
   (t) => [
     // GIST index is added in the migration — drizzle-kit does not emit USING GIST.
+    //
+    // So are the three PARTIAL indexes this table now carries, for the same
+    // reason (drizzle-kit emits no WHERE clause either): `idx_drivers_geo`
+    // (0002, unfiltered GIST), `idx_drivers_online_geo` (0013, the same column
+    // filtered to online + approved, which is what §19.2's PostGIS fallback
+    // actually queries) and `idx_drivers_zone` (0013). If you add a partial
+    // index here, add it to a migration — nothing in this file will emit it.
     index('idx_drivers_status').on(t.kycStatus, t.isOnline),
     index('idx_drivers_fleet').on(t.fleetId),
   ],

@@ -25,6 +25,33 @@ export const env = {
   mockOfferState: (process.env.EXPO_PUBLIC_MOCK_OFFER_STATE ?? '') as '' | 'none',
 
   /** Empty by default — analytics falls back to the log adapter until a real GA4 property exists. */
+  /** Dev-only: force the notification centre's mocks into empty/error. */
+  mockNotificationsState: (process.env.EXPO_PUBLIC_MOCK_NOTIFICATIONS_STATE ?? '') as MockState,
+
   ga4MeasurementId: process.env.EXPO_PUBLIC_GA4_MEASUREMENT_ID ?? '',
   ga4ApiSecret: process.env.EXPO_PUBLIC_GA4_API_SECRET ?? '',
+
+  /**
+   * Google Maps SDK key for ANDROID (Phase 16).
+   *
+   * The driver app renders no map of its own yet — Phase 18's job execution is
+   * the first screen that needs one — but `react-native-maps` is installed here
+   * in the same native rebuild that brings `expo-location` and
+   * `expo-task-manager`, so the shared `<MapPreview />` resolves in both apps.
+   * Empty (the default) keeps the themed placeholder on Android; iOS renders
+   * through Apple Maps with no key. SETUP-CHECKLIST item 7.
+   */
+  mapsAndroidKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ?? '',
+
+  /**
+   * Open a `/driver` WebSocket alongside REST ingress (Phase 16).
+   *
+   * ON BY DEFAULT and worth a switch anyway: it is the §19.2 kill switch's
+   * client half. The server has `REALTIME_ENABLED` and answers the ticket route
+   * with a specific 503 when it is off, but a handset burning battery on a
+   * reconnect loop during an incident is a problem the operator cannot reach
+   * from the server side. REST ingress is unaffected either way — the socket is
+   * the fast path, never the only one.
+   */
+  driverSocketEnabled: (process.env.EXPO_PUBLIC_DRIVER_SOCKET_ENABLED ?? 'true') !== 'false',
 };

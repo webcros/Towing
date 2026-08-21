@@ -1,4 +1,3 @@
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   FleetLoginRequest,
@@ -20,6 +19,7 @@ import { FLEET_REALM } from './auth.types';
 import { OTP_PORT, type OtpPort } from './otp.port';
 import { verifyDecoyPassword, verifyPassword } from './password';
 import { TokenService, type SessionContext } from './token.service';
+import { digest, digestsMatch, generateOtp } from './otp.util';
 
 /**
  * One message for every way step 1 can fail. "No such account", "wrong password"
@@ -320,19 +320,4 @@ export class AuthService {
       })
       .where(eq(fleetOwnerCredentials.id, credentialId));
   }
-}
-
-function generateOtp(): string {
-  return randomInt(0, 1_000_000).toString().padStart(6, '0');
-}
-
-function digest(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function digestsMatch(a: string, b: string): boolean {
-  const left = Buffer.from(a, 'utf8');
-  const right = Buffer.from(b, 'utf8');
-
-  return left.length === right.length && timingSafeEqual(left, right);
 }

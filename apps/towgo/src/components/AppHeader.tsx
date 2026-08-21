@@ -1,9 +1,14 @@
 import React from 'react';
 import { View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Animated, { type SharedValue } from 'react-native-reanimated';
 import { AppBar, IconButton, Text } from '@towing/ui';
 import { Menu, Bell } from '@/icons';
 import { useHairlineStyle, useHairlineToken, useTitleHandoff } from '@/motion';
+import { useTheme } from '@towing/theme';
+import { useUnreadCount } from '@/features/notifications/api/notifications.queries';
+import type { RootStackParamList } from '@/navigation/types';
 import { Logo } from './Logo';
 
 export type AppHeaderProps = {
@@ -11,7 +16,7 @@ export type AppHeaderProps = {
   onNotifications?: () => void;
   /** Home and Profile hide it. There is no drawer, so it has nothing to open. */
   showMenu?: boolean;
-  /** Profile hides it. Nothing wires `onNotifications`, so it does nothing. */
+  /** Profile hides it. Defaults to opening the notification centre (Phase 13). */
   showBell?: boolean;
   /**
    * Scroll offset of the screen this bar sits above. Supplying it turns on the
@@ -26,17 +31,26 @@ export type AppHeaderProps = {
   title?: string;
 };
 
-const noop = () => {};
-
-/** Shared top bar (optional menu · TowGo logo · bell) used across primary tabs. */
+/** Shared top bar (optional menu · MiTow logo · bell) used across primary tabs. */
 export function AppHeader({
-  onMenu = noop,
-  onNotifications = noop,
+  onMenu = () => {},
+  onNotifications,
   showMenu = true,
   showBell = true,
   scrollY,
   title,
 }: AppHeaderProps) {
+  const theme = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // The count query is cheap and shared — three tabs render this header, and
+  // they all read the same cache entry rather than fetching three times.
+  const unread = useUnreadCount();
+  const hasUnread = (unread.data?.unread ?? 0) > 0;
+
+  // Phase 13 finally wires this. Until now the prop defaulted to a no-op and
+  // the component's own comment said so.
+  const openNotifications = onNotifications ?? (() => navigation.navigate('Notifications'));
+
   return (
     <View>
       <AppBar
@@ -46,14 +60,38 @@ export function AppHeader({
         center={scrollY && title ? <HandoffCenter scrollY={scrollY} title={title} /> : <Logo />}
         right={
           showBell ? (
-            <IconButton
-              icon={Bell}
-              label="Notifications"
-              variant="surface"
-              size={17}
-              onPress={onNotifications}
-              style={{ width: 40, height: 40, borderRadius: 13 }}
-            />
+            <View>
+              <IconButton
+                icon={Bell}
+                label={hasUnread ? 'Notifications, unread' : 'Notifications'}
+                variant="surface"
+                size={17}
+                onPress={openNotifications}
+                style={{ width: 40, height: 40, borderRadius: 13 }}
+              />
+              {/*
+                A dot, not a count. A numeric pill needs a truncation rule
+                ("9+"), a width that does not shift the bar, and a design
+                decision nobody has made — and the count is one tap away. It is
+                on the design backlog, not silently skipped.
+              */}
+              {hasUnread ? (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 9,
+                    height: 9,
+                    borderRadius: 5,
+                    backgroundColor: theme.colors.brand,
+                    borderWidth: 1.5,
+                    borderColor: theme.colors.surface0,
+                  }}
+                />
+              ) : null}
+            </View>
           ) : null
         }
       />

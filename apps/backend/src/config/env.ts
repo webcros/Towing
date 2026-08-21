@@ -71,6 +71,17 @@ const EnvSchema = z.object({
   /** Location batch flush cadence — the "<=1/s/truck" of the Phase 5 plan. */
   REALTIME_FLUSH_MS: z.coerce.number().int().positive().default(1_000),
 
+  /**
+   * How often driver pings are written through to Postgres (§11.2's "only
+   * samples and final positions are persisted"). NOT the same knob as
+   * `REALTIME_FLUSH_MS`, which coalesces SOCKET frames on a ~1s window: this one
+   * governs DATABASE writes and is two orders of magnitude slower on purpose.
+   *
+   * 30s matches the driver hash TTL, so the authoritative row is never more
+   * stale than the hot key it backs up.
+   */
+  LOCATION_FLUSH_MS: z.coerce.number().int().positive().default(30_000),
+
   /** WebSocket handshake tickets are single-use; this is only the outer bound. */
   REALTIME_TICKET_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 
@@ -323,17 +334,37 @@ const EnvSchema = z.object({
   GOOGLE_JWKS_CACHE_SECONDS: z.coerce.number().int().positive().default(3_600),
 
   /**
-   * Sign in with Apple. SHIPS OFF AND `assertProductionSafety` REFUSES TO BOOT
-   * PRODUCTION WITH IT ON — the adapter exists behind the port but has never
-   * once executed, because it needs a Services ID, Team ID and signing key from
-   * a paid Apple Developer account whose organisation enrolment (D-U-N-S,
-   * weeks) only starts at this phase. Phase 13 implements, enables and verifies
-   * it on a device, and deletes the production check.
+   * Sign in with Apple (§9.1, App Store Guideline 4.8).
+   *
+   * SHIPS OFF. Phase 13 made `AppleIdentityAdapter` real — it verifies against
+   * Apple's JWKS with the same ES256 pinning `GoogleIdentityAdapter` does for
+   * RS256 — but it has never seen a token Apple actually minted, because
+   * organisation enrolment (D-U-N-S, weeks) has not completed. The flag is the
+   * one place that changes when it has; nothing else does.
    */
   APPLE_LOGIN_ENABLED: z
     .string()
     .default('')
     .transform((v) => v === '1' || v === 'true'),
+
+  /**
+   * The `aud` values to pin — the iOS bundle id for native sign-in, plus any
+   * Services ID used by a web flow. Empty means the adapter reports itself
+   * disabled, exactly as `GOOGLE_OAUTH_CLIENT_IDS` empty does, because an
+   * unpinned audience accepts any Apple ID token from any app in the world.
+   */
+  APPLE_CLIENT_IDS: z
+    .string()
+    .default('')
+    .transform((raw) => raw.split(',').map((id) => id.trim()).filter(Boolean)),
+
+  APPLE_JWKS_URL: z.url().default('https://appleid.apple.com/auth/keys'),
+
+  /** §19.3's external-call budget — a slow JWKS fetch must not hang a login. */
+  APPLE_JWKS_TIMEOUT_MS: z.coerce.number().int().positive().default(3_000),
+
+  /** Floor for the JWKS cache; the response's own `Cache-Control` wins if longer. */
+  APPLE_JWKS_CACHE_SECONDS: z.coerce.number().int().positive().default(3_600),
 
   // --- OTP send limits (Phase 10) -------------------------------------------
 
@@ -349,6 +380,153 @@ const EnvSchema = z.object({
 
   /** Resend cooldown. Returned to the client so its timer matches the server's. */
   OTP_SEND_MIN_INTERVAL_SECONDS: z.coerce.number().int().positive().default(30),
+
+  // --- Notifications spine (Phase 13, §12) ----------------------------------
+
+  /**
+   * Master kill switch for OUTBOUND delivery only.
+   *
+   * Off means: events are still recorded, in-app notification rows are still
+   * written, and every delivery row is stamped `skipped/notifications_disabled`
+   * — but nothing is handed to a vendor. It exists so a k6 run or a provider
+   * incident is handled by one flag rather than by unbinding four adapters.
+   *
+   * ⚠ It deliberately does NOT gate `emit()`. The inbox is written inside the
+   * producer's own transaction precisely so that turning this off (or running
+   * with `QUEUE_ENABLED=false`, which the whole test suite does) still leaves
+   * the bell correct. See invariant 74.
+   */
+  NOTIFY_ENABLED: z
+    .string()
+    .default('true')
+    .transform((v) => v !== '0' && v.toLowerCase() !== 'false'),
+
+  /**
+   * FOUR SWITCHES, NOT ONE. The four channels' credentials arrive at four
+   * different times — Firebase and SES production access are separate
+   * procurement items, MSG91 needs DLT template registration, WhatsApp needs a
+   * BSP plus Meta template approval — so a single `NOTIFICATION_PROVIDER` would
+   * make going live all-or-nothing. `log` is the PERMANENT zero-credential
+   * path, the same standing as `DevOtpAdapter` and `DiskStorageAdapter`: the
+   * whole spine must stay demonstrable with no vendor account, forever.
+   */
+  NOTIFY_PUSH_PROVIDER: z.enum(['log', 'expo']).default('log'),
+  NOTIFY_SMS_PROVIDER: z.enum(['log', 'msg91']).default('log'),
+  NOTIFY_WHATSAPP_PROVIDER: z.enum(['log', 'cloud_api']).default('log'),
+  NOTIFY_EMAIL_PROVIDER: z.enum(['log', 'ses']).default('log'),
+
+  /**
+   * §19.3's external-call budget, applied to EVERY vendor call through
+   * `ExternalCallPolicy` — Maps, MSG91, FCM, WhatsApp, SES, Razorpay. A hung
+   * provider socket must not park a queue worker.
+   *
+   * RENAMED FROM `NOTIFY_*` IN PHASE 14. Phase 13 built the policy and named
+   * its knobs after its only consumer; Phase 14 added routing and Phase 19 adds
+   * payments, and a Maps timeout read out of a variable called
+   * `NOTIFY_CALL_TIMEOUT_MS` is a variable nobody will find. Per-vendor budgets
+   * that differ from the default are passed at the call site instead — see
+   * `ROUTING_TIMEOUT_MS`, which is far tighter than this because it sits inside
+   * §7.6's 2-second estimate guarantee.
+   */
+  EXTERNAL_CALL_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+
+  /** Consecutive failures before the per-vendor breaker opens. */
+  EXTERNAL_CALL_BREAKER_THRESHOLD: z.coerce.number().int().positive().default(5),
+
+  /** How long an open breaker stays open before letting one probe through. */
+  EXTERNAL_CALL_BREAKER_RESET_MS: z.coerce.number().int().positive().default(30_000),
+
+  /**
+   * §7 road distance. `haversine` is the LIVE DEFAULT and a first-class §19.2
+   * path, not a stub: no Google Maps key exists yet (SETUP-CHECKLIST item 7),
+   * and a straight-line estimate scaled by `charge_config.haversine_road_factor`
+   * is a real fare. `google_distance_matrix` is written and unit-tested but has
+   * never called Google.
+   */
+  ROUTING_PROVIDER: z.enum(['haversine', 'google_distance_matrix']).default('haversine'),
+
+  /** Validated in the adapter's `onModuleInit`, never in its constructor. */
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
+
+  GOOGLE_DISTANCE_MATRIX_URL: z
+    .url()
+    .default('https://maps.googleapis.com/maps/api/distancematrix/json'),
+
+  /**
+   * DELIBERATELY TIGHTER THAN §19.3's 2–5 s. This call sits inside
+   * `POST /pricing/estimate`, which §7.6 caps at 2 s end to end and §19.1 wants
+   * under a 200 ms p95. At 1.5 s a timeout still leaves room to fall back to
+   * Haversine — which is instant — and answer inside the guarantee. A 5 s budget
+   * here would blow §7.6 while the policy was still being patient.
+   */
+  ROUTING_TIMEOUT_MS: z.coerce.number().int().positive().default(1_500),
+
+  /**
+   * §9.1.5 address search. `local` is the LIVE DEFAULT and a first-class §19.2
+   * path, not a stub: no Places key exists (SETUP-CHECKLIST item 7), and a
+   * gazetteer over the two seeded cities exercises the whole typed-address flow
+   * end to end. `google_places` is written and unit-tested but has never called
+   * Google.
+   *
+   * A SEPARATE SWITCH FROM `ROUTING_PROVIDER`, even though both spend the same
+   * key. The two APIs are enabled independently in Google Cloud and are billed
+   * independently, so a project with Distance Matrix on and Places off is a real
+   * configuration — and one flag would make turning either on all-or-nothing,
+   * the same argument the four `NOTIFY_*_PROVIDER` switches already won.
+   */
+  GEOCODING_PROVIDER: z.enum(['local', 'google_places']).default('local'),
+
+  GOOGLE_PLACES_URL: z.url().default('https://maps.googleapis.com/maps/api/place'),
+  GOOGLE_GEOCODING_URL: z.url().default('https://maps.googleapis.com/maps/api/geocode/json'),
+
+  /**
+   * TIGHT BECAUSE A HUMAN IS TYPING, not because of a §7.6-style guarantee. A
+   * suggestion list that lands after the next keystroke has already been sent is
+   * worse than no list, so a slow answer is not worth waiting for even when it
+   * would eventually be right — the gazetteer replies in microseconds.
+   */
+  GEOCODING_TIMEOUT_MS: z.coerce.number().int().positive().default(1_200),
+
+  /**
+   * Re-enqueues events that never fanned out and deliveries stranded in
+   * `queued` — the repair for a process that died between a commit and its
+   * enqueue. Every 5 minutes, deduplicated across tasks by `QueuePort`.
+   */
+  NOTIFY_SWEEP_CRON: z.string().default('*/5 * * * *'),
+
+  /** A delivery still `queued` after this long is considered stranded. */
+  NOTIFY_STRANDED_MINUTES: z.coerce.number().int().positive().default(5),
+
+  /**
+   * Expo push. No account or key is needed to SEND — the access token is
+   * optional and only raises rate limits — but a working push still requires an
+   * FCM server key (Android) and an APNs key (iOS) uploaded to the Expo
+   * project, neither of which exists yet. See `ToBeDoneEhsan.md`.
+   */
+  EXPO_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
+  EXPO_PUSH_RECEIPTS_URL: z.url().default('https://exp.host/--/api/v2/push/getReceipts'),
+  EXPO_ACCESS_TOKEN: z.string().optional(),
+
+  /**
+   * How long after a send the receipts job asks Expo what happened. Expo
+   * returns `DeviceNotRegistered` HERE, not in the send ticket — polling this
+   * is the only thing that ever prunes a token belonging to an uninstalled app.
+   */
+  EXPO_RECEIPT_DELAY_MS: z.coerce.number().int().positive().default(900_000),
+
+  /** MSG91 SMS. Validated in the adapter's onModuleInit, never in its constructor. */
+  MSG91_BASE_URL: z.url().default('https://control.msg91.com'),
+  MSG91_AUTH_KEY: z.string().optional(),
+  MSG91_SENDER_ID: z.string().optional(),
+
+  /** WhatsApp Cloud API. `WHATSAPP_PHONE_NUMBER_ID` is the sender, not a phone number. */
+  WHATSAPP_BASE_URL: z.url().default('https://graph.facebook.com/v21.0'),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
+
+  /** Amazon SES. Region and credentials come from the standard AWS chain. */
+  SES_REGION: z.string().default('ap-south-1'),
+  SES_FROM_EMAIL: z.string().default('no-reply@towing.local'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -404,11 +582,63 @@ export function assertProductionSafety(env: Env): void {
     throw new Error('AUTH_DEV_OTP_ECHO must never be set in production');
   }
 
-  // The Apple adapter is a stub that has never run against Apple's servers, and
-  // there are no credentials to point it at. Enabling it would present users
-  // with a sign-in button that cannot work. Phase 13 implements it, verifies it
-  // on a device, and removes this check.
-  if (env.APPLE_LOGIN_ENABLED) {
-    throw new Error('APPLE_LOGIN_ENABLED is not supported until Phase 13');
+  // The Apple adapter is REAL as of Phase 13 — it verifies against Apple's
+  // JWKS exactly as the Google one does — but it has still never seen a token
+  // Apple actually minted, because organisation enrolment (D-U-N-S, weeks) has
+  // not completed. The refusal therefore moved from "not supported yet" to
+  // "not configured": without client ids there is no `aud` to pin, and an
+  // unpinned audience would accept ANY Apple ID token from ANY app in the
+  // world as this user. Same rule `GOOGLE_OAUTH_CLIENT_IDS` already enforces
+  // via `GoogleIdentityAdapter.enabled`.
+  if (env.APPLE_LOGIN_ENABLED && env.APPLE_CLIENT_IDS.length === 0) {
+    throw new Error(
+      'APPLE_LOGIN_ENABLED is set but APPLE_CLIENT_IDS is empty — there is no audience to pin',
+    );
+  }
+
+  // Notification providers are NOT refused on `log` in production, deliberately.
+  // WhatsApp needs a BSP plus Meta template approval and SES needs a support
+  // review; making either a hard boot failure would turn a procurement item
+  // into a launch blocker, which is the opposite of the dev-safe-default rule.
+  // A WARN is emitted at startup instead (see `NotificationRouterAdapter`).
+  //
+  // What IS refused is a real adapter pointed at a placeholder — that is a
+  // misconfiguration, not a deferral, and it fails at the first send otherwise.
+  if (env.NOTIFY_EMAIL_PROVIDER === 'ses' && env.SES_FROM_EMAIL.endsWith('.local')) {
+    throw new Error('SES_FROM_EMAIL is still the development placeholder');
+  }
+
+  if (env.NOTIFY_SMS_PROVIDER === 'msg91' && (!env.MSG91_AUTH_KEY || !env.MSG91_SENDER_ID)) {
+    throw new Error('MSG91_AUTH_KEY and MSG91_SENDER_ID are required when NOTIFY_SMS_PROVIDER=msg91');
+  }
+
+  if (
+    env.NOTIFY_WHATSAPP_PROVIDER === 'cloud_api' &&
+    (!env.WHATSAPP_PHONE_NUMBER_ID || !env.WHATSAPP_ACCESS_TOKEN)
+  ) {
+    throw new Error(
+      'WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN are required when NOTIFY_WHATSAPP_PROVIDER=cloud_api',
+    );
+  }
+
+  // Routing follows the SAME split as the notification channels, for the same
+  // reason. `ROUTING_PROVIDER=haversine` in production is ALLOWED: it is a real
+  // §19.2 path that the breaker falls back to anyway, and refusing it would
+  // make a Google Cloud billing account a launch blocker. What is refused is
+  // the misconfiguration — the real adapter selected with nothing to call.
+  if (env.ROUTING_PROVIDER === 'google_distance_matrix' && !env.GOOGLE_MAPS_API_KEY) {
+    throw new Error(
+      'GOOGLE_MAPS_API_KEY is required when ROUTING_PROVIDER=google_distance_matrix',
+    );
+  }
+
+  // Geocoding follows routing exactly. `GEOCODING_PROVIDER=local` in production
+  // is ALLOWED — it is a real §19.2 path the breaker falls back to anyway, and
+  // refusing it would make a Google Cloud billing account a launch blocker. What
+  // is refused is the misconfiguration: the real adapter selected with nothing
+  // to call.
+  if (env.GEOCODING_PROVIDER === 'google_places' && !env.GOOGLE_MAPS_API_KEY) {
+    throw new Error('GOOGLE_MAPS_API_KEY is required when GEOCODING_PROVIDER=google_places');
   }
 }
+

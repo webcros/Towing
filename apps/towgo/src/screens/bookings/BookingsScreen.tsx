@@ -3,13 +3,15 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '@towing/theme';
-import { Screen, Text, OfflineBanner, EmptyState, ErrorState } from '@towing/ui';
+import { Button, Screen, Text, OfflineBanner, EmptyState, ErrorState } from '@towing/ui';
 import { ClipboardList } from '@/icons';
 import { AppHeader } from '@/components/AppHeader';
 import { useCollapsingHeader } from '@/motion';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTabBarSpace } from '@/navigation/TabBar';
 import { useBookings } from '@/features/bookings/api/bookings.queries';
+import { isActiveBooking } from '@/features/bookings/types';
+import { ActiveTripCard } from '@/features/bookings/components/ActiveTripCard';
 import { BookingCard, BookingCardSkeleton } from '@/features/bookings/components/BookingCard';
 import type { BookingsStackParamList } from '@/navigation/types';
 
@@ -19,7 +21,10 @@ export function BookingsScreen() {
   const { scrollY, screenProps } = useCollapsingHeader();
   const online = useOnlineStatus();
   const navigation = useNavigation<NativeStackNavigationProp<BookingsStackParamList>>();
-  const { data, isPending, isError, refetch } = useBookings();
+  const { items, isPending, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useBookings();
+  const active = items.find(isActiveBooking) ?? null;
+  const past = items.filter((booking) => !isActiveBooking(booking));
 
   const openBooking = useCallback(
     (bookingId: string) => navigation.navigate('BookingDetails', { bookingId }),
@@ -45,7 +50,7 @@ export function BookingsScreen() {
         />
       </View>
     );
-  } else if (!data || data.length === 0) {
+  } else if (items.length === 0) {
     content = (
       <View style={{ paddingTop: theme.spacing.xl }}>
         <EmptyState
@@ -60,13 +65,32 @@ export function BookingsScreen() {
     // larger than the 16 inside them -- equal or tighter reads as one mushy block.
     content = (
       <View style={{ gap: theme.spacing.xxl }}>
-        {data.map((booking) => (
+        {/*
+          §9.1.10's ACTIVE TRIP CARD, above the history and visually separated.
+          Until Phase 15 an in-flight trip was unrecoverable the moment you left
+          the tracking screen — nothing in the app knew it existed.
+        */}
+        {active ? (
+          <ActiveTripCard booking={active} onPress={() => openBooking(active.id)} />
+        ) : null}
+
+        {past.map((booking) => (
           <BookingCard
             key={booking.id}
             booking={booking}
             onPress={() => openBooking(booking.id)}
           />
         ))}
+
+        {hasNextPage ? (
+          <Button
+            label={isFetchingNextPage ? 'Loading…' : 'Load more'}
+            variant="secondary"
+            onPress={() => void fetchNextPage()}
+            disabled={isFetchingNextPage}
+            fullWidth
+          />
+        ) : null}
       </View>
     );
   }

@@ -3,7 +3,7 @@ import { Image, View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Text, StatusBadge, type IconComponent } from '@towing/ui';
 import { Phone, MessageCircle, Star } from '@/icons';
-import { formatINR } from '@/utils/format';
+import { formatBookingDate, formatBookingTime, formatPaise } from '@/utils/format';
 import { STATUS_META } from '../statusMeta';
 import type { BookingDetail } from '../types';
 import { Pressable } from '@/motion';
@@ -71,40 +71,45 @@ export function BookingHero({
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.lg }}>
         <View style={{ flex: 1, gap: theme.spacing.sm }}>
           <Text variant="h2">
-            {towName} tow with {booking.driverName}
+            {towName} tow{booking.driverName ? ` with ${booking.driverName}` : ''}
           </Text>
 
           <Text variant="body" color="secondary">
-            {booking.date} · {booking.time}
+            {formatBookingDate(booking.createdAt)} · {formatBookingTime(booking.createdAt)}
           </Text>
 
           <Text variant="h3" tabular>
-            {formatINR(booking.fare)}
+            {formatPaise(booking.farePaise)}
           </Text>
         </View>
 
-        <View style={{ alignItems: 'center', gap: 6 }}>
-          <Image
-            source={booking.driverPhoto}
-            accessibilityLabel={`${booking.driverName}'s photo`}
-            style={{
-              width: theme.sizes.avatar.md,
-              height: theme.sizes.avatar.md,
-              borderRadius: theme.sizes.avatar.md / 2,
-              backgroundColor: theme.colors.brandTint,
-            }}
-          />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Star
-              size={theme.sizes.icon.xs}
-              color={theme.colors.star}
-              fill={theme.colors.star}
+        {/* No driver until assignment (§11.9) — the whole block is absent, not empty. */}
+        {booking.driverName ? (
+          <View style={{ alignItems: 'center', gap: 6 }}>
+            <Image
+              source={booking.driverPhoto ? { uri: booking.driverPhoto } : undefined}
+              accessibilityLabel={`${booking.driverName}'s photo`}
+              style={{
+                width: theme.sizes.avatar.md,
+                height: theme.sizes.avatar.md,
+                borderRadius: theme.sizes.avatar.md / 2,
+                backgroundColor: theme.colors.brandTint,
+              }}
             />
-            <Text variant="caption" weight="medium" tabular>
-              {booking.driverRating.toFixed(1)}
-            </Text>
+            {booking.driverRating !== null ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Star
+                  size={theme.sizes.icon.xs}
+                  color={theme.colors.star}
+                  fill={theme.colors.star}
+                />
+                <Text variant="caption" weight="medium" tabular>
+                  {booking.driverRating.toFixed(1)}
+                </Text>
+              </View>
+            ) : null}
           </View>
-        </View>
+        ) : null}
       </View>
 
       <View style={{ flexDirection: 'row' }}>

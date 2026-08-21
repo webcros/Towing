@@ -1,8 +1,17 @@
-/** Outcome of a job — drives the status pill (see JOB_STATUS_META). */
-export type JobStatus = 'completed' | 'cancelled' | 'assigned';
+import type { JobStatus } from '@towing/api-contracts';
 
-/** How the customer paid. */
-export type JobPayment = 'cash' | 'online';
+/**
+ * The full §5.1 machine, taken from the shared contract rather than restated —
+ * the DB has all ten and a client must be able to render every one. Re-exported
+ * so this feature stays the domain owner of the vocabulary its components read.
+ */
+export type { JobStatus };
+
+/**
+ * How the customer paid. Cash is a §29.4 roadmap item, not a launch payment
+ * method — same reason TowGo's `BookingPaymentMethod` doesn't carry it.
+ */
+export type JobPayment = 'online';
 
 /** Segmented filter on the Jobs screen. */
 export type JobFilter = 'all' | 'assigned' | 'completed' | 'cancelled';

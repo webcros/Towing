@@ -1,11 +1,11 @@
 # 02 — Target AWS Architecture
 
-**Audience:** the AWS engineer executing Phase 9 of [docs/TowFleet-Implementation-Plan.md](../docs/TowFleet-Implementation-Plan.md).
+**Audience:** the AWS engineer executing Phase 9 of [docs/TowFleet-Implementation-Plan-V2.md](../docs/TowFleet-Implementation-Plan-V2.md) (V2 is current; the V1 file is superseded). Phase 9 now runs as **9a staging** (next, pinned to `desiredCount: 1`) then **9b production**.
 **Source of truth for the architecture:** spec §15 ([docs/Towing-Project-Specification_v3.md](../docs/Towing-Project-Specification_v3.md), lines 1014–1130). AWS is the committed deployment target; every vendor touchpoint in the codebase is already behind a port so the deploy is an adapter swap, not a rewrite.
 
-**What you are deploying now (Phases 1–6 complete):** the NestJS backend API (`apps/backend`) and the TowFleet Next.js SSR console (`apps/towfleet-web`), backed by RDS PostgreSQL 16 + PostGIS, ElastiCache Redis, and S3. The mobile apps (TowGo, TowPartner) are Expo/React Native running on in-app mocks — they do **not** talk to the backend yet and need nothing from this deployment.
+**What you are deploying now (Track A phases 1–8 complete; Track B 10–12 complete):** the NestJS backend API (`apps/backend`) and the TowFleet Next.js SSR console (`apps/towfleet-web` — which now also hosts the `/admin/*` KYC console), backed by RDS PostgreSQL 16 + PostGIS, ElastiCache Redis, and S3. The mobile apps (TowGo, TowPartner) are Expo/React Native and are **not** deployed by you, but since Phase 12 they **do** talk to this backend (phone-OTP auth + REST) — Phase 9a exists partly to give them a reachable HTTPS origin, since an Expo client on cellular cannot reach a laptop.
 
-**What arrives later:** Redis-backed throttling and multi-instance hardening (Phase 8). The Socket.io realtime gateway (Phase 5) and BullMQ workers (Phase 6) have LANDED and run inside the API task today. The architecture below reserves room for them so Phase 9 does not have to be redone.
+**What has landed since this doc was first written:** the Socket.io realtime gateway (Phase 5), BullMQ workers (Phase 6), the money/ledger subsystem (Phase 7) and the Redis-backed throttling + multi-instance hardening (Phase 8) all run inside the API task today. `StoragePort` also gained pre-signed PUT/GET in Phase 11, so the S3 adapter is now load-bearing for driver KYC documents rather than future-proofing. The architecture below reserved room for all of it, so Phase 9 does not have to be redone.
 
 ---
 
@@ -36,7 +36,7 @@
 flowchart TB
     subgraph clients["Clients"]
         browser["Fleet-owner browser<br/>(TowFleet console)"]
-        mobile["TowGo / TowPartner mobile<br/>(mock mode - no backend traffic yet)"]
+        mobile["TowGo / TowPartner mobile<br/>(real OTP auth + REST since Phase 12;<br/>not deployed here, but a client of this origin)"]
     end
 
     subgraph edge["Edge"]
@@ -96,7 +96,7 @@ Notes on the diagram:
 
 - The **browser never holds tokens** — only httpOnly cookies (`fleet_session` = 15-min JWT, `fleet_refresh` = rotating 30-day refresh token). The Next.js BFF proxy (`/api/proxy/[...path]`) injects `Authorization` and transparently refreshes. Refresh is **serialized per process only** — a multi-instance `towfleet-web` needs ALB sticky sessions or a shared lock (flagged for Phase 8). Plan for stickiness on the web target group from day one.
 - `towfleet-web` reaches the backend via `API_BASE_URL`, read **server-side at runtime** — it can point at an internal ALB listener or service-discovery name. `NEXT_PUBLIC_USE_MOCKS` is **inlined at build time** into the browser bundle: the production image must be built with `NEXT_PUBLIC_USE_MOCKS=false`, not just run with it.
-- Mobile traffic is drawn dashed-out on purpose: nothing to route until the driver-app ingestion lands (post-Phase 5). The location **simulator** stands in for driver GPS today.
+- Mobile traffic is drawn dashed-out because the apps are not *deployed* here — but as of Phase 12 they are real clients: auth (`/v1/auth/otp/*`), the customer `/v1/me/*` group and the driver KYC routes all take mobile traffic, including pre-signed S3 uploads. What has **not** arrived yet is the high-volume **location ingestion** (Phase 16); the `sim:locations` simulator still stands in for driver GPS, so size the ping path from the plan, not from today's traffic.
 
 ---
 

@@ -51,3 +51,37 @@ export type DocReviewStatus = z.infer<typeof docReviewStatusSchema>;
  */
 export const publicAuthRoleSchema = z.enum(['customer', 'driver']);
 export type PublicAuthRole = z.infer<typeof publicAuthRoleSchema>;
+
+/**
+ * `bookings.service_type` — the six BILLABLE service types (§3.2), unchanged
+ * since migration 0001.
+ *
+ * Appendix B lists **nine** catalogue entries, and Phase 14 deliberately did NOT
+ * widen this enum to match. Car / bike / flatbed / wheel-lift tow are four ways
+ * of presenting one billable `tow`, distinguished by vehicle class — they are
+ * catalogue rows (the `services` table), not new economics. Widening the enum
+ * instead would have rippled into `PricingServiceType`, `resolveBand`, the
+ * `bookings` and `jobs` columns and every seeded fixture, in exchange for a
+ * distinction the fare engine does not make. Postgres enum values also cannot be
+ * dropped, so the decision would not have been reversible.
+ *
+ * The mapping lives in `services.service_type`; see `customer/services.ts`.
+ */
+export const serviceTypeSchema = z.enum([
+  'tow',
+  'battery',
+  'flat_tyre',
+  'fuel',
+  'breakdown',
+  'accident_recovery',
+]);
+export type ServiceType = z.infer<typeof serviceTypeSchema>;
+
+/**
+ * §7.4 surge tiers. Was free-text `service_zones.surge_band` until Phase 14 — a
+ * nullable `text` column that only ever held the literal `'standard'` and that
+ * nothing read. Typed here because the estimate multiplies by it: a typo in a
+ * free-text band is a silently un-surged fare.
+ */
+export const surgeBandSchema = z.enum(['standard', 'high', 'peak']);
+export type SurgeBand = z.infer<typeof surgeBandSchema>;

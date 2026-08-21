@@ -6,11 +6,11 @@ import type { RootStackParamList } from './types';
 import { BottomTabs } from './BottomTabs';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { SplashScreen } from '@/screens/auth/SplashScreen';
-import { PhoneEntryScreen } from '@/screens/auth/PhoneEntryScreen';
-import { OtpScreen } from '@/screens/auth/OtpScreen';
+import { LoginScreen } from '@/screens/auth/LoginScreen';
 import { ProfileSetupScreen } from '@/screens/onboarding/ProfileSetupScreen';
 import { BookLocationScreen } from '@/screens/booking/BookLocationScreen';
 import { BookTowScreen } from '@/screens/booking/BookTowScreen';
+import { MapPickerScreen } from '@/screens/booking/MapPickerScreen';
 import { SearchingScreen } from '@/screens/booking/SearchingScreen';
 import { TrackingScreen } from '@/screens/booking/TrackingScreen';
 import { PersonalInformationScreen } from '@/screens/account/PersonalInformationScreen';
@@ -20,6 +20,13 @@ import { SavedLocationsScreen } from '@/screens/account/SavedLocationsScreen';
 import { AddSavedLocationScreen } from '@/screens/account/AddSavedLocationScreen';
 import { PaymentMethodsScreen } from '@/screens/account/PaymentMethodsScreen';
 import { NotificationsSettingsScreen } from '@/screens/account/NotificationsSettingsScreen';
+import { NotificationsScreen } from '@/screens/notifications/NotificationsScreen';
+import {
+  PushPrimingSheet,
+  shouldPrimePush,
+} from '@/features/notifications/components/PushPrimingSheet';
+import { useNotificationListeners } from '@/features/notifications/push/useNotificationListeners';
+import { usePushRegistration } from '@/features/notifications/push/usePushRegistration';
 import { HelpCenterScreen } from '@/screens/account/HelpCenterScreen';
 import { ContactUsScreen } from '@/screens/account/ContactUsScreen';
 import { SettingsScreen } from '@/screens/account/SettingsScreen';
@@ -41,6 +48,11 @@ export function RootNavigator() {
   const isNew = useAuthStore((s) => s.identity?.isNew ?? false);
   const hydrate = useAuthStore((s) => s.hydrate);
   const [consentCaptured, setConsentCaptured] = useState(hasCapturedConsent);
+  const [pushPrimed, setPushPrimed] = useState(false);
+
+  // Both are no-ops until there is a session; both are safe to mount always.
+  usePushRegistration();
+  useNotificationListeners();
 
   useEffect(() => {
     hydrate();
@@ -50,6 +62,12 @@ export function RootNavigator() {
   // A returning/onboarded customer sees the one-time consent capture before
   // anything else; a brand-new customer sees it next launch, after ProfileSetup.
   const showConsentCapture = status === 'authenticated' && !isNew && !consentCaptured;
+
+  // Only once the legal gate is out of the way, and only where a token could
+  // actually be minted — `shouldPrimePush()` is false in Expo Go and on a
+  // simulator, so the ask is never spent somewhere it cannot be honoured.
+  const showPushPriming =
+    status === 'authenticated' && !showConsentCapture && !pushPrimed && shouldPrimePush();
 
   return (
     <>
@@ -70,10 +88,7 @@ export function RootNavigator() {
           {status === 'hydrating' ? (
             <Stack.Screen name="Splash" component={SplashScreen} />
           ) : status === 'unauthenticated' ? (
-            <>
-              <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} />
-              <Stack.Screen name="Otp" component={OtpScreen} />
-            </>
+            <Stack.Screen name="Login" component={LoginScreen} />
           ) : (
             <>
               {isNew ? <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} /> : null}
@@ -91,6 +106,18 @@ export function RootNavigator() {
                 }}
               />
               <Stack.Screen name="BookTow" component={BookTowScreen} />
+              <Stack.Screen
+                name="MapPicker"
+                component={MapPickerScreen}
+                // Same slide-up + swipe-down pairing as `BookLocation`, which is
+                // the screen it opens from: the picker reads as a step within
+                // entering a location rather than a separate destination.
+                options={{
+                  animation: 'slide_from_bottom',
+                  gestureDirection: 'vertical',
+                  animationDuration: motion.duration.slow,
+                }}
+              />
               <Stack.Screen
                 name="Searching"
                 component={SearchingScreen}
@@ -117,6 +144,7 @@ export function RootNavigator() {
               <Stack.Screen name="AddSavedLocation" component={AddSavedLocationScreen} />
               <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
               <Stack.Screen name="NotificationsSettings" component={NotificationsSettingsScreen} />
+              <Stack.Screen name="Notifications" component={NotificationsScreen} />
               <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
               <Stack.Screen name="ContactUs" component={ContactUsScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
@@ -131,6 +159,17 @@ export function RootNavigator() {
       {showConsentCapture ? (
         <ConsentCaptureOverlay onDone={() => setConsentCaptured(true)} />
       ) : null}
+
+      {/*
+        Push priming, AFTER consent and only once (Phase 13).
+
+        A sibling of the consent overlay rather than a step inside it, because
+        the two are not the same kind of thing: consent is a legal gate that
+        blocks the app, this is an ask that costs nothing to decline. Ordering
+        matters though — stacking two full-screen asks on a first launch is how
+        both get dismissed, so this waits until consent is behind the user.
+      */}
+      {showPushPriming ? <PushPrimingSheet onDone={() => setPushPrimed(true)} /> : null}
     </>
   );
 }

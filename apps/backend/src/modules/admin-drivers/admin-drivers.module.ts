@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AdminAuthModule } from '../admin-auth/admin-auth.module';
 import { AuthModule } from '../auth/auth.module';
+import { DriverPresenceModule } from '../driver-presence/driver-presence.module';
 import { AdminDriversController } from './admin-drivers.controller';
 import { AdminDriversService } from './admin-drivers.service';
 
@@ -9,8 +10,14 @@ import { AdminDriversService } from './admin-drivers.service';
  * `AdminAuthModule` for its exported `AdminAuditService` — this stays the
  * sole writer of `admin_actions` rather than gaining a second one here.
  */
+/**
+ * `DriverPresenceModule` (Phase 16) so a suspension can evict the driver from
+ * §6.1's candidate store in the same request that revokes their session —
+ * losing authority and losing dispatchability are the same decision, and
+ * splitting them across two phases' code would let one of them regress silently.
+ */
 @Module({
-  imports: [AuthModule, AdminAuthModule],
+  imports: [AuthModule, AdminAuthModule, DriverPresenceModule],
   controllers: [AdminDriversController],
   providers: [AdminDriversService],
 })

@@ -52,7 +52,7 @@ export class RealtimeController {
       );
     }
 
-    const ticket = await this.tickets.issue({ fleetId, userId });
+    const ticket = await this.tickets.issue({ realm: 'fleet', fleetId, subjectId: userId });
     return {
       ticket,
       expiresInSeconds: this.tickets.ttlSeconds,

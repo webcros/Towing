@@ -5,10 +5,46 @@ import type { Redis } from 'ioredis';
 import { ENV, type Env } from '../config/env';
 import { REDIS, wsTicketKey } from '../redis/redis.constants';
 
-export interface WsTicketClaims {
-  fleetId: FleetId;
-  userId: string;
-}
+/**
+ * Who a redeemed ticket is. Widened in Phase 16 from `{ fleetId, userId }` to
+ * carry a REALM, because there are now two namespaces and a ticket minted for
+ * one must not open a socket on the other.
+ *
+ * `realm` is not decoration: `DriverGateway` refuses anything that is not
+ * `driver` and `FleetGateway` refuses anything that is not `fleet`. Without it
+ * a fleet owner's ticket would satisfy the driver handshake's "there is a
+ * subject id here" check and land them in a `driver:{id}` room keyed on their
+ * own user id — reading another realm's offers.
+ */
+export type WsTicketClaims =
+  | {
+      realm: 'fleet';
+      /** The console's tenant. The ONLY thing that decides a fleet socket's room. */
+      fleetId: FleetId;
+      /** `fleet_users.id` — who is watching, for the connection log. */
+      subjectId: string;
+    }
+  | {
+      realm: 'driver';
+      /** `drivers.id`. Decides the `driver:{id}` room and nothing else does. */
+      subjectId: string;
+    }
+  | {
+      realm: 'customer';
+      /** `users.id` — who is watching. */
+      subjectId: string;
+      /**
+       * The booking this socket may watch, decided HERE rather than by anything
+       * the socket says later (Phase 17).
+       *
+       * The ticket route proves ownership before minting, so the expensive
+       * check happens once on a route that was already doing it, and the
+       * gateway's room join needs no authorization logic of its own. A customer
+       * with a stolen booking id cannot mint a ticket for it, and a customer
+       * with a valid ticket cannot redirect it at another booking.
+       */
+      bookingId: string;
+    };
 
 /**
  * Single-use handshake tickets for the WebSocket connection.
@@ -65,18 +101,36 @@ export class WsTicketService {
     if (raw === null) return null;
 
     try {
-      const parsed: unknown = JSON.parse(raw);
-      if (
-        typeof parsed !== 'object' ||
-        parsed === null ||
-        typeof (parsed as WsTicketClaims).fleetId !== 'string' ||
-        typeof (parsed as WsTicketClaims).userId !== 'string'
-      ) {
-        return null;
-      }
-      return parsed as WsTicketClaims;
+      return narrowClaims(JSON.parse(raw));
     } catch {
       return null;
     }
   }
+}
+
+/**
+ * Hand-narrowed rather than zod-parsed, deliberately: this value was written by
+ * THIS service into a key only it can name, so the risk being defended against
+ * is a deploy that changed the shape while old tickets were still in flight —
+ * not a hostile payload. Returning null there logs the holder out for the
+ * ticket's remaining seconds, which is the correct amount of drama.
+ */
+function narrowClaims(parsed: unknown): WsTicketClaims | null {
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const claims = parsed as Partial<Record<string, unknown>>;
+  if (typeof claims.subjectId !== 'string' || claims.subjectId.length === 0) return null;
+
+  if (claims.realm === 'driver') {
+    return { realm: 'driver', subjectId: claims.subjectId };
+  }
+
+  if (claims.realm === 'customer' && typeof claims.bookingId === 'string' && claims.bookingId.length > 0) {
+    return { realm: 'customer', subjectId: claims.subjectId, bookingId: claims.bookingId };
+  }
+
+  if (claims.realm === 'fleet' && typeof claims.fleetId === 'string' && claims.fleetId.length > 0) {
+    return { realm: 'fleet', fleetId: claims.fleetId as FleetId, subjectId: claims.subjectId };
+  }
+
+  return null;
 }

@@ -1,0 +1,66 @@
+import { Injectable } from '@nestjs/common';
+import type { NearbyDriversQuery, NearbyDriversResponse } from '@towing/api-contracts';
+import { DriverCandidatesRepo } from '../driver-presence/driver-candidates.repo';
+import { ZoneResolverService } from '../pricing/zone-resolver.service';
+import { COARSEN_METERS, coarsenAll } from './coarsen';
+
+/**
+ * §11.9's "drivers near me" — the supply signal the customer's home map draws.
+ *
+ * WHAT IT DOES NOT RETURN IS THE FEATURE. No id, no name, no plate, no rating,
+ * no per-driver ETA: §11.9 forbids identity pre-assignment, because showing
+ * "Suresh, 4.8★" before dispatch has run promises a specific driver the matcher
+ * has not chosen and may never offer the job to. TowGo's `NearbyDriver` type
+ * carried exactly those three fields from Phase 12's mock; they are deleted
+ * rather than served.
+ *
+ * IT REUSES THE DISPATCH CANDIDATE STORE, and that is the point of the phase.
+ * The customer sees precisely the supply that the matcher would consider —
+ * same zone partition, same freshness rule — so a map showing three trucks and
+ * a search that finds nobody cannot disagree.
+ */
+
+/**
+ * Enough to fill a viewport, not enough to be a census. The map draws markers;
+ * past a few dozen they overlap into a blob and the honest `count` is doing all
+ * the communicating anyway.
+ */
+const MAX_MARKERS = 40;
+
+@Injectable()
+export class DriversNearbyService {
+  constructor(
+    private readonly candidates: DriverCandidatesRepo,
+    private readonly zones: ZoneResolverService,
+  ) {}
+
+  async nearby(query: NearbyDriversQuery): Promise<NearbyDriversResponse> {
+    const centre = { lat: query.lat, lng: query.lng };
+
+    // The viewport's zone decides which GEO partition to search. `null` — the
+    // customer is outside every service area — is NOT an error here the way it
+    // is for a booking: panning the map over open country should answer "no
+    // drivers", not 422. `positionsNear` falls through to PostGIS for that case,
+    // which correctly finds nothing.
+    const zone = await this.zones.resolve(centre);
+
+    const { points, degraded } = await this.candidates.positionsNear({
+      zoneId: zone?.id ?? null,
+      centre,
+      radiusKm: query.radiusKm,
+      limit: MAX_MARKERS,
+    });
+
+    return {
+      // Counted BEFORE coarsening. Two drivers sharing a cell collapse to one
+      // marker — which is the right picture — but the customer is still told
+      // there are two, because "how much supply is there" is the question the
+      // number answers and the one that decides whether they book.
+      count: points.length,
+      points: coarsenAll(points),
+      coarsenedToMeters: COARSEN_METERS,
+      at: new Date().toISOString(),
+      degraded,
+    };
+  }
+}

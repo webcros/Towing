@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { useTheme } from '@towing/theme';
 import { Text } from '@towing/ui';
 
-const APP_NAME = Constants.expoConfig?.name ?? 'TowPartner';
+const APP_NAME = Constants.expoConfig?.name ?? 'MiTow Partner';
 
 /** Shown while `authStore.hydrate()` reads the persisted session from MMKV (root gate). */
 export function SplashScreen() {

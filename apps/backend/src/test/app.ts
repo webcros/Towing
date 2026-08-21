@@ -68,9 +68,24 @@ export async function wsTicketFor(
   params: { userId: string; fleetId: string },
 ): Promise<string> {
   return app.get(WsTicketService).issue({
-    userId: params.userId,
+    realm: 'fleet',
+    subjectId: params.userId,
     fleetId: params.fleetId as never,
   });
+}
+
+/**
+ * The `/driver` namespace's equivalent (Phase 16). A SIBLING, not a parameter on
+ * the helper above, for the same reason `driverAuthHeaderFor` is a sibling of
+ * `authHeaderFor`: the two realms carry different claims and collapsing them
+ * into one signature makes it possible to mint a ticket with a tenant on the
+ * driver side by accident.
+ */
+export async function driverWsTicketFor(
+  app: INestApplication,
+  driverId: string,
+): Promise<string> {
+  return app.get(WsTicketService).issue({ realm: 'driver', subjectId: driverId });
 }
 
 /**

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { NOTIFICATIONS, type NotificationPort } from '../../common/notifications/notification.port';
+import { NotificationService } from '../../common/notifications/notification.service';
 import { QUEUE, type QueuePort } from '../../common/queue/queue.port';
 import { ENV, type Env } from '../../config/env';
 import { DB, type Database } from '../../db/db.module';
@@ -42,7 +42,7 @@ export class EarningsProjectorService implements OnModuleInit {
     @Inject(DB) private readonly db: Database,
     @Inject(QUEUE) private readonly queue: QueuePort,
     @Inject(ENV) private readonly env: Env,
-    @Inject(NOTIFICATIONS) private readonly notifications: NotificationPort,
+    private readonly notifications: NotificationService,
     @Inject(REDIS) private readonly redis: Redis,
     private readonly ledger: LedgerService,
   ) {}
@@ -125,16 +125,14 @@ export class EarningsProjectorService implements OnModuleInit {
 
     if (report.maxDeltaPaise > this.env.LEDGER_DRIFT_TOLERANCE_PAISE && totalDrift > 0) {
       try {
-        await this.notifications.notify({
-          to: this.env.LEDGER_OPS_EMAIL,
-          channel: 'email',
-          template: 'ops_ledger_drift',
-          variables: {
-            walletDrift: String(invariants.walletDrift),
-            bookingDrift: String(invariants.bookingDrift),
-            ledgerDrift: String(invariants.ledgerDrift),
-            maxDeltaPaise: String(report.maxDeltaPaise),
-          },
+        // An OPERATIONAL alarm, not a §12.2 product row — its recipient is an
+        // ops mailbox rather than a subject in the database, which is why the
+        // trigger synthesises a recipient and writes no inbox row. Not to be
+        // confused with §12.2's "Earnings credited", which is Phase 19.
+        await this.notifications.emit('ops.ledger_drift', {
+          day: report.checkedAt.slice(0, 10),
+          driftPaise: report.maxDeltaPaise,
+          opsEmail: this.env.LEDGER_OPS_EMAIL,
         });
       } catch (error) {
         this.logger.warn(`drift notification failed: ${String(error)}`);

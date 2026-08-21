@@ -1,3 +1,4 @@
+import type { DispatchConfigOverride } from '@towing/api-contracts';
 import type { LatLng } from '../geography';
 
 /**
@@ -43,7 +44,7 @@ export interface FleetFixture {
   owner: { name: string; mobile: string; email: string };
   /** Roam anchor for trucks/bookings; also decides the zone polygon. */
   areas: ReadonlyArray<readonly [name: string, lat: number, lng: number]>;
-  zone: { name: string; wkt: string };
+  zone: ZoneFixture;
 }
 
 export const FLEETS: readonly FleetFixture[] = [
@@ -70,6 +71,18 @@ export const FLEETS: readonly FleetFixture[] = [
     zone: {
       name: 'Bengaluru Metro',
       wkt: 'SRID=4326;POLYGON((77.45 12.80,77.80 12.80,77.80 13.15,77.45 13.15,77.45 12.80))',
+      surgeBand: 'standard',
+      // The §6.4 launch ladder, written out rather than left NULL so the seeded
+      // database exercises the override path and not only the defaults.
+      dispatchConfig: {
+        radiusLadderKm: [2, 4, 7, 10, 15],
+        offersPerWave: 3,
+        offerTimeoutSeconds: 20,
+        maxSearchSeconds: 180,
+        // A fuel run does not need a 15 km reach; a jerrycan 12 km away is a
+        // worse answer than one 5 km away arriving sooner.
+        perService: { fuel: { radiusLadderKm: [2, 4, 7] } },
+      },
     },
   },
   {
@@ -91,6 +104,10 @@ export const FLEETS: readonly FleetFixture[] = [
     zone: {
       name: 'Chennai Metro',
       wkt: 'SRID=4326;POLYGON((80.05 12.85,80.32 12.85,80.32 13.15,80.05 13.15,80.05 12.85))',
+      // The one surging zone in the seed. Without it `surgePaise` is zero on
+      // every seeded estimate and TowGo's surge badge has nothing to render.
+      surgeBand: 'high',
+      dispatchConfig: { radiusLadderKm: [3, 6, 10, 15], offersPerWave: 3 },
     },
   },
 ];
@@ -101,6 +118,141 @@ export const FLEETS: readonly FleetFixture[] = [
  * truck to `non_compliant`; ≤30 days becomes `expiring_soon` — the Phase 6
  * worker and the console's expiry badges both feed off these.
  */
+/**
+ * A geofence row. `isHighway` and `dispatchConfig` were columns nothing wrote
+ * until Phase 14 — the former is what makes §7.4's highway surcharge reachable,
+ * the latter what §6.7 tunes without a deploy.
+ */
+export interface ZoneFixture {
+  name: string;
+  wkt: string;
+  surgeBand?: 'standard' | 'high' | 'peak';
+  isHighway?: boolean;
+  dispatchConfig?: DispatchConfigOverride;
+}
+
+/**
+ * Zones that belong to no fleet.
+ *
+ * Zones used to be created only inside the per-fleet loop, so a highway
+ * corridor — which is not a fleet's home turf — had nowhere to live, and
+ * `is_highway` was false on every row in the database. The §7.4 highway
+ * surcharge was therefore unreachable and untestable.
+ *
+ * NH-44 south of Bengaluru toward Hosur: a long thin strip that deliberately
+ * OVERLAPS the Bengaluru Metro polygon at its northern end. That overlap is the
+ * point — it is what exercises `ZoneResolverService`'s ordering rule, where a
+ * highway zone outranks a city zone for a pickup inside both.
+ */
+export const STANDALONE_ZONES: readonly ZoneFixture[] = [
+  {
+    name: 'NH-44 Bengaluru–Hosur Corridor',
+    wkt: 'SRID=4326;POLYGON((77.62 12.70,77.72 12.70,77.72 12.95,77.62 12.95,77.62 12.70))',
+    isHighway: true,
+    surgeBand: 'standard',
+    // A highway search starts wider: drivers are sparser and further apart than
+    // in a city grid, so a 2 km first wave would return nobody nearly always.
+    dispatchConfig: {
+      radiusLadderKm: [5, 12, 25, 40],
+      bandCRadiusLadderKm: [10, 25, 50],
+      offersPerWave: 4,
+      maxSearchSeconds: 240,
+    },
+  },
+];
+
+/**
+ * Appendix B's nine-entry service catalogue, over the six-value
+ * `service_type` enum. Car / bike / flatbed / wheel-lift tow all bill as `tow`
+ * and differ only in the class that picks the §7.1 or §7.2 slab — see
+ * `common/enums.ts` in contracts for why the enum was not widened to nine.
+ */
+export interface ServiceFixture {
+  slug: string;
+  serviceType: 'tow' | 'battery' | 'flat_tyre' | 'fuel' | 'breakdown' | 'accident_recovery';
+  defaultVehicleClass: 'wheel_lift' | 'flatbed' | null;
+  name: string;
+  description: string;
+  requiresDrop: boolean;
+}
+
+export const SERVICE_CATALOG: readonly ServiceFixture[] = [
+  {
+    slug: 'car_tow',
+    serviceType: 'tow',
+    // NULL: §9.1.5 step 1 — the customer's own vehicle decides whether a car
+    // goes on a wheel-lift or needs a flatbed.
+    defaultVehicleClass: null,
+    name: 'Car tow',
+    description: 'Standard car towing to your chosen destination.',
+    requiresDrop: true,
+  },
+  {
+    slug: 'bike_tow',
+    serviceType: 'tow',
+    defaultVehicleClass: 'wheel_lift',
+    name: 'Bike tow',
+    description: 'Two-wheeler recovery and transport.',
+    requiresDrop: true,
+  },
+  {
+    slug: 'flatbed_tow',
+    serviceType: 'tow',
+    defaultVehicleClass: 'flatbed',
+    name: 'Flatbed tow',
+    description: 'Damage-free transport for luxury, SUV and electric vehicles.',
+    requiresDrop: true,
+  },
+  {
+    slug: 'wheel_lift_tow',
+    serviceType: 'tow',
+    defaultVehicleClass: 'wheel_lift',
+    name: 'Wheel-lift tow',
+    description: 'Quick city recovery for short distances.',
+    requiresDrop: true,
+  },
+  {
+    slug: 'battery',
+    serviceType: 'battery',
+    defaultVehicleClass: null,
+    name: 'Battery jumpstart',
+    description: 'On-site jumpstart to get you moving again.',
+    requiresDrop: false,
+  },
+  {
+    slug: 'flat_tyre',
+    serviceType: 'flat_tyre',
+    defaultVehicleClass: null,
+    name: 'Flat-tyre support',
+    description: 'Tyre change or on-the-spot repair.',
+    requiresDrop: false,
+  },
+  {
+    slug: 'fuel',
+    serviceType: 'fuel',
+    defaultVehicleClass: null,
+    name: 'Fuel delivery',
+    description: 'Emergency fuel delivered to your location.',
+    requiresDrop: false,
+  },
+  {
+    slug: 'breakdown',
+    serviceType: 'breakdown',
+    defaultVehicleClass: null,
+    name: 'Breakdown assistance',
+    description: 'General on-site diagnosis and help.',
+    requiresDrop: false,
+  },
+  {
+    slug: 'accident_recovery',
+    serviceType: 'accident_recovery',
+    defaultVehicleClass: 'flatbed',
+    name: 'Accident recovery',
+    description: 'Post-accident recovery with specialist equipment.',
+    requiresDrop: true,
+  },
+];
+
 export type CompliancePlan = ReadonlyArray<
   readonly [docType: 'insurance' | 'rc' | 'puc' | 'permit', daysToExpiry: number | null]
 >;

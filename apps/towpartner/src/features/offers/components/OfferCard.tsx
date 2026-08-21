@@ -6,8 +6,32 @@ import { MapPin, Wallet, Truck, Route, Clock, Car, MessageCircle } from '@/icons
 import { Pill } from '@/components/Pill';
 import { driverColors } from '@/theme/driverColors';
 import { formatINR } from '@/utils/format';
+import type { JobPayment } from '@/features/jobs/types';
 import type { JobOffer } from '../types';
 import { Pressable } from '@/motion';
+
+/** A Record, not a ternary — a new payment method becomes a compile error, not a silent "Online". */
+const PAYMENT_LABEL: Record<JobPayment, string> = { online: 'Online' };
+
+/**
+ * How far the driver is from the pickup, in the terms they think in.
+ *
+ * Replaces the old `minutesAway`, which the server cannot honestly supply: an
+ * ETA needs a routed journey, and Phase 17 deliberately scores proximity on
+ * straight-line distance rather than making a billed Directions call per driver
+ * per wave. Metres under a kilometre, one decimal above — a driver reading "2.4
+ * km" knows what that means for them far better than a minutes figure computed
+ * without traffic.
+ */
+function distanceToPickupLabel(meters: number): string {
+  if (meters < 1_000) return `${Math.round(meters / 50) * 50} m away`;
+  return `${(meters / 1_000).toFixed(1)} km away`;
+}
+
+/** A readable service name when the wire did not carry a display label. */
+function towTypeLabel(offer: JobOffer): string {
+  return offer.vehicleClass === 'flatbed' ? 'Flatbed Tow' : 'Wheel-Lift Tow';
+}
 
 const carImage = require('@/assets/illustrations/offer-car.png');
 
@@ -85,7 +109,7 @@ export function OfferCard({
         style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}
       >
         <Pill
-          label={`${offer.minutesAway} min away`}
+          label={distanceToPickupLabel(offer.distanceToPickupMeters)}
           bg={theme.colors.card}
           fg={driverColors.amber}
           borderColor={HAIRLINE}
@@ -94,11 +118,11 @@ export function OfferCard({
         />
         <View style={{ alignItems: 'flex-end' }}>
           <Text weight="medium" tabular style={{ fontSize: 22, lineHeight: 29 }}>
-            {formatINR(offer.fare)}
+            {formatINR(offer.earnings.netPaise / 100)}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={{ fontSize: 14, lineHeight: 22, color: driverColors.online }}>
-              {offer.payment === 'cash' ? 'Cash' : 'Online'}
+              {offer.payment ? PAYMENT_LABEL[offer.payment] : 'You earn'}
             </Text>
             <Wallet size={14} color={driverColors.online} strokeWidth={2} />
           </View>
@@ -121,14 +145,14 @@ export function OfferCard({
         </View>
         <View style={{ flex: 1 }}>
           <Text weight="medium" numberOfLines={1} style={{ fontSize: 20, lineHeight: 27 }}>
-            {offer.vehicleName}
+            {offer.vehicleName ?? offer.towTypeLabel ?? 'Tow request'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 7 }}>
             <View
               style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: driverColors.online }}
             />
             <Text numberOfLines={1} style={{ fontSize: 16, lineHeight: 25, flex: 1 }}>
-              {offer.pickup}
+              {offer.pickupAddress ?? 'Pickup'}
             </Text>
           </View>
           <View
@@ -144,7 +168,7 @@ export function OfferCard({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
             <MapPin size={14} color={theme.colors.error} strokeWidth={2.4} />
             <Text numberOfLines={1} style={{ fontSize: 16, lineHeight: 25, flex: 1 }}>
-              {offer.drop}
+              {offer.dropAddress ?? 'No destination'}
             </Text>
           </View>
         </View>
@@ -154,9 +178,9 @@ export function OfferCard({
 
       {/* Tow type · distance · expiry countdown */}
       <View style={{ flexDirection: 'row', alignItems: 'stretch', paddingVertical: 4 }}>
-        <MetaCol icon={Truck} label="Tow Type" value={offer.towTypeLabel} />
+        <MetaCol icon={Truck} label="Tow Type" value={offer.towTypeLabel ?? towTypeLabel(offer)} />
         <View style={{ width: 1, backgroundColor: HAIRLINE }} />
-        <MetaCol icon={Route} label="Distance" value={`${offer.distanceKm} km`} />
+        <MetaCol icon={Route} label="Distance" value={offer.distanceKm === null ? '—' : `${offer.distanceKm} km`} />
         <View style={{ width: 1, backgroundColor: HAIRLINE }} />
         <MetaCol icon={Clock} label="Expires In" value={expiresLabel} valueColor={driverColors.amber} />
       </View>
@@ -172,9 +196,11 @@ export function OfferCard({
             numberOfLines={1}
             style={{ fontSize: 14, lineHeight: 22, color: INK_SOFT, paddingBottom: 7 }}
           >
-            {`${offer.vehicleName} • ${offer.vehicleColor}`}
+            {offer.vehicleName ? `${offer.vehicleName} • ${offer.vehicleColor ?? '—'}` : 'Shared after you accept'}
           </Text>
-          <Pill label={offer.vehiclePlate} bg="#F3F4F6" fg="#374151" radius={7} textSize={14} />
+          {offer.vehiclePlate ? (
+            <Pill label={offer.vehiclePlate} bg="#F3F4F6" fg="#374151" radius={7} textSize={14} />
+          ) : null}
         </View>
       </View>
 
@@ -185,7 +211,9 @@ export function OfferCard({
         <SquareChip icon={MessageCircle} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, lineHeight: 22 }}>Customer Note</Text>
-          <Text style={{ fontSize: 14, lineHeight: 20, color: INK_SOFT }}>{offer.customerNote}</Text>
+          <Text style={{ fontSize: 14, lineHeight: 20, color: INK_SOFT }}>
+            {offer.note ?? 'No note from the customer.'}
+          </Text>
         </View>
       </View>
 

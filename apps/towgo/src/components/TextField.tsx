@@ -12,6 +12,8 @@ export type TextFieldProps = {
   editable?: boolean;
   multiline?: boolean;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  /** Rendered before the input — e.g. the login screen's phone icon + "+91" + divider. */
+  leftSlot?: React.ReactNode;
   rightSlot?: React.ReactNode;
 };
 
@@ -25,6 +27,7 @@ export function TextField({
   editable = true,
   multiline = false,
   autoCapitalize,
+  leftSlot,
   rightSlot,
 }: TextFieldProps) {
   const theme = useTheme();
@@ -51,6 +54,7 @@ export function TextField({
           minHeight: 50,
         }}
       >
+        {leftSlot}
         <TextInput
           value={value}
           onChangeText={onChangeText}

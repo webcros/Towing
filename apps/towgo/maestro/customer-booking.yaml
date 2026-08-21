@@ -1,0 +1,101 @@
+# Track B Phase 15 — book a tow, end to end, hermetic.
+#
+# Runs against `bookingsMockSource` and `pricingMockSource` (no backend), the
+# same "mocks-on Maestro flows retained as hermetic CI path" rule Phase 12
+# established. Requires `EXPO_PUBLIC_USE_MOCKS` unset or `true`.
+#
+# What it proves — the §9.1.5 flow Phase 15 made real:
+#   home → location → tow type → an estimate lands → the fare breakdown opens
+#   (its ⓘ was inert until Phase 14) → Confirm creates a booking (it was a bare
+#   `navigation.navigate('Searching')` until Phase 15) → the searching screen is
+#   reached for a booking that actually exists → the trip survives leaving that
+#   screen, via an active-trip card that did not exist at all before.
+#
+# The booking legitimately stays in SEARCHING: dispatch is Phase 17, so nothing
+# can match it. This flow asserts that honest end state rather than waiting for
+# a driver who cannot arrive.
+#
+# Matches on visible copy and accessibilityLabel only — this codebase has no
+# testID convention (see customer-login.yaml).
+#
+# ⚠ NEVER EXECUTED. No EAS or dev-client build exists for this app, so no
+# Maestro flow in this repo has ever run. Reviewed against the screens as
+# written; that is all.
+appId: com.towing.towgo
+---
+- runFlow: customer-login.yaml
+
+# ── Step 1: open the booking flow from Home ─────────────────────────────────
+- assertVisible: 'Fast Towing,'
+- tapOn: 'Where do you need a tow?'
+- assertVisible: 'Enter location'
+
+# ── Step 2: pickup and drop, both carrying real coordinates ─────────────────
+# Typing an address leaves `dropCoords` null, so the recents list is the only
+# source of a coordinate until Phase 16 adds Places autocomplete and a map pin.
+- tapOn: 'Drop location'
+- tapOn: 'Koramangala'
+
+# §9.1.5's schedule pill — `onPress={() => {}}` until Phase 15, so `'later'`
+# was unreachable and this sheet did not exist.
+- tapOn: 'Pickup now'
+- assertVisible: 'When do you need the tow?'
+- tapOn: 'Now'
+
+- tapOn: 'Continue'
+
+# ── Step 3: the fare estimate ───────────────────────────────────────────────
+- assertVisible: 'Select Tow Type'
+# The estimate is a real request even in mock mode and the CTA stays disabled
+# until it lands, so the breakdown affordance is the sync point.
+- assertVisible:
+    id: 'View fare breakdown'
+    timeout: 10000
+
+- tapOn: 'View fare breakdown'
+- assertVisible: 'Fare breakdown'
+- assertVisible: 'Base fare'
+- assertVisible: 'Total estimate'
+- assertVisible: 'Fare locks when you confirm; it may change with demand until then.'
+- tapOn: 'Got it'
+
+# A note the driver will see. `setNote` was never called from anywhere before.
+- tapOn: 'Add Note (Optional): Add'
+- assertVisible: 'Add a note for the driver'
+- inputText: 'Blue hatchback, basement parking'
+- tapOn: 'Save'
+- assertVisible: 'Add Note (Optional): Edit'
+
+# ── Step 4: confirm — the real POST ─────────────────────────────────────────
+- tapOn: 'Confirm Booking'
+
+# §9.1.6. The booking now exists and sits in SEARCHING; nothing can move it on
+# until Phase 17, and the screen says so rather than faking a match.
+- assertVisible:
+    text: 'Searching for Tow'
+    timeout: 15000
+- assertVisible: "We'll notify you as soon as a driver accepts your request."
+
+# ── Step 5: the trip survives leaving the screen ────────────────────────────
+# THE POINT OF THE ACTIVE-TRIP CARD. Leaving the search used to lose the trip
+# entirely — nothing outside the tracking screen knew one was running.
+#
+# This leaves WITHOUT cancelling: "Cancel request" would end the booking, which
+# is the opposite of what this step proves.
+- tapOn:
+    id: 'Go back'
+- assertVisible: 'Select Tow Type'
+
+- tapOn: 'Bookings'
+- assertVisible: 'My Bookings'
+- assertVisible: 'Current trip'
+- assertVisible: 'Finding you a driver'
+
+# ── Cleanup ─────────────────────────────────────────────────────────────────
+# Leaving an open booking behind would trip §3.8's one-active-booking guard on
+# the next run — a second confirm would be refused with `active_booking_exists`.
+# §3.5 makes cancelling free for the whole of SEARCHING.
+- tapOn: 'Current trip'
+- assertVisible: 'Searching for Tow'
+- tapOn: 'Cancel request'
+- assertVisible: 'Fast Towing,'

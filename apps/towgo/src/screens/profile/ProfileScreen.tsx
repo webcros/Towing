@@ -26,7 +26,7 @@ import { useBookings } from '@/features/bookings/api/bookings.queries';
 import { useProfile } from '@/features/account/api/profile.queries';
 import { useVehicles } from '@/features/account/api/vehicles.queries';
 import { useAddresses } from '@/features/account/api/addresses.queries';
-import { useNotificationPrefsStore } from '@/features/account/store/notificationPrefsStore';
+import { useUnreadCount } from '@/features/notifications/api/notifications.queries';
 import { paymentMethodsMock } from '@/features/account/data/paymentMethods.mock';
 import { ProfileHeroCard } from '@/features/account/components/ProfileHeroCard';
 import {
@@ -52,18 +52,14 @@ export function ProfileScreen() {
   const { data: profile, isPending: profilePending, isError: profileError, refetch: refetchProfile } = useProfile();
   const { data: vehicles } = useVehicles();
   const { data: addresses } = useAddresses();
-  const prefs = useNotificationPrefsStore((s) => s.prefs);
-  const { data: bookings } = useBookings();
+  const unread = useUnreadCount();
+  const { items: bookings } = useBookings();
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const logout = useLogout();
 
-  const trips = bookings?.length ?? 0;
+  const trips = bookings.length;
   const vehicleCount = vehicles?.length ?? 0;
   const addressCount = addresses?.length ?? 0;
-  const notificationsOn = useMemo(
-    () => Object.values(prefs).filter(Boolean).length,
-    [prefs],
-  );
 
   /**
    * Six real signals, so the number moves when the user actually does something.
@@ -172,7 +168,7 @@ export function ProfileScreen() {
         <StatusCard
           icon={Bell}
           label="Notifications"
-          badge={`${notificationsOn} of ${Object.keys(prefs).length} on`}
+          badge={(unread.data?.unread ?? 0) > 0 ? `${unread.data?.unread} new` : 'Up to date'}
           onPress={openNotifications}
         />
 

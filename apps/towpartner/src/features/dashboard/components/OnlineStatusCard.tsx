@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, View, type LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, Image, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTheme } from '@towing/theme';
 import { StatusBadge, Text } from '@towing/ui';
-import { RadioTower, ShieldCheck } from '@/icons';
+import { Info, RadioTower, ShieldCheck } from '@/icons';
+import type { GoOnlineFailure } from '@/features/presence/api/presence.queries';
 import { HeroCard } from '@/components/HeroCard';
 import { driverColors } from '@/theme/driverColors';
 import { Pressable } from '@/motion';
@@ -39,9 +40,31 @@ export function OnlineStatusCard({
   isOnline,
   onToggle,
   disabled = false,
+  busy = false,
+  zoneName = null,
+  failure = null,
 }: {
   isOnline: boolean;
   onToggle: () => void;
+  /**
+   * A go-online or go-offline call is in flight (Phase 16). The toggle is not
+   * instant any more — it asks for permission, takes a GPS fix and calls the
+   * server — so it has to say so, or a driver taps it repeatedly.
+   */
+  busy?: boolean;
+  /**
+   * The §6.1 zone the driver was placed in. Shown because it is the difference
+   * between "online" and "online somewhere jobs actually come from", and a
+   * driver who sees no zone name has a real problem worth noticing.
+   */
+  zoneName?: string | null;
+  /**
+   * Why the last attempt failed. Rendered in the card rather than as a toast:
+   * every one of these needs the driver to DO something (grant a permission,
+   * drive into a covered area, contact support), and a message that disappears
+   * after three seconds is not a place to put an instruction.
+   */
+  failure?: GoOnlineFailure | null;
   /**
    * True while the driver isn't KYC-approved. Renders a verification banner
    * instead of the toggle — kycStatus itself is NOT duplicated into
@@ -144,15 +167,20 @@ export function OnlineStatusCard({
 
           <Text style={{ fontSize: 13, lineHeight: 18, color: '#4B5563', marginTop: 6 }}>
             {isOnline
-              ? 'You will receive new tow requests'
+              ? zoneName
+                ? `Receiving requests in ${zoneName}`
+                : 'You will receive new tow requests'
               : "You're offline. Go online to receive requests"}
           </Text>
+
+          {failure ? <FailureNote failure={failure} /> : null}
 
           <Pressable
             onPress={onToggle}
             onLayout={onTrackLayout}
+            disabled={busy}
             accessibilityRole="switch"
-            accessibilityState={{ checked: isOnline }}
+            accessibilityState={{ checked: isOnline, disabled: busy, busy }}
             accessibilityLabel={isOnline ? 'Go offline' : 'Go online'}
             style={({ pressed }) => ({
               flexDirection: 'row',
@@ -209,7 +237,11 @@ export function OnlineStatusCard({
                 knobStyle,
               ]}
             >
-              <RadioTower size={18} color="#FFFFFF" strokeWidth={2.4} />
+              {busy ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <RadioTower size={18} color="#FFFFFF" strokeWidth={2.4} />
+              )}
             </Animated.View>
           </Pressable>
         </View>
@@ -222,5 +254,32 @@ export function OnlineStatusCard({
         />
       </View>
     </HeroCard>
+  );
+}
+
+/**
+ * Why the driver is not online, and what to do about it.
+ *
+ * Each branch names a DIFFERENT remedy, which is the reason `usePresence`
+ * returns a discriminated failure rather than a string: "you did not grant
+ * location", "you are outside every service area" and "an admin suspended you"
+ * are three unrelated problems, and flattening them into one "could not go
+ * online" would leave the driver guessing which of the three they have.
+ */
+function FailureNote({ failure }: { failure: GoOnlineFailure }) {
+  const message = {
+    'permission-denied':
+      'Location permission is off. Turn it on in Settings to start receiving jobs.',
+    'no-fix': "Couldn't get a GPS fix. Move somewhere with a clearer view of the sky and try again.",
+    'outside-zone': failure.kind === 'outside-zone' ? failure.message : '',
+    'not-approved': 'Your account is not approved to go online. Contact support.',
+    failed: failure.kind === 'failed' ? failure.message : '',
+  }[failure.kind];
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 8 }}>
+      <Info size={14} color="#B45309" style={{ marginTop: 2 }} />
+      <Text style={{ fontSize: 12, lineHeight: 17, color: '#B45309', flex: 1 }}>{message}</Text>
+    </View>
   );
 }

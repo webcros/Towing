@@ -103,6 +103,35 @@ describe('settings e2e (/v1/fleet/settings)', () => {
       });
     });
 
+    it('does not reset a non-default preference the client never mentioned', async () => {
+      // The case above passes even when merging is broken, because every
+      // untouched key happens to equal its default. This one does not.
+      //
+      // `notificationPrefsSchema.partial()` kept each field's `.default()`, so
+      // a one-key PUT arrived at the repo as all four keys — and the merge
+      // dutifully wrote the three the owner never touched back to default,
+      // silently undoing `jobs: true`.
+      await request(app.getHttpServer())
+        .put('/v1/fleet/settings')
+        .set('Authorization', authA)
+        .send({ notificationPrefs: { jobs: true } })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .put('/v1/fleet/settings')
+        .set('Authorization', authA)
+        .send({ notificationPrefs: { compliance: false } })
+        .expect(200);
+
+      const res = await get(authA).expect(200);
+      expect(res.body.notificationPrefs).toEqual({
+        compliance: false,
+        payouts: true,
+        jobs: true,
+        weekly: true,
+      });
+    });
+
     it('rejects an invalid GSTIN with field-level details', async () => {
       const res = await request(app.getHttpServer())
         .put('/v1/fleet/settings')

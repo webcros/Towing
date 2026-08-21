@@ -13,9 +13,13 @@ export interface PresignedUploadSlot {
 
 /**
  * Presign-then-confirm document uploads. Generalized out of Phase 11's
- * `driver-kyc.service.ts` (`modules/me`'s profile-photo/vehicle-RC uploads are
- * the second consumer, which is what made the extraction worth it — a third,
- * a driver's own profile photo, is plausible later).
+ * `driver-kyc.service.ts` when Phase 12 added its second consumer: the
+ * saved-vehicle RC upload in `modules/me`
+ * (`POST /v1/me/vehicles/:id/rc/presign` + `/rc/confirm`), which is what made
+ * the extraction worth it. **Profile photos are NOT a consumer** — `PUT /v1/me`
+ * takes `photoUrl` as a plain string and no profile-photo upload route exists
+ * on either realm; a driver's own profile photo is a plausible third consumer
+ * later, not a current one.
  *
  * A key is always `<keyPrefix>/<subjectId>/<docType>-<uuid>.jpg`. Confirming a
  * key checks it is EXACTLY that shape for the calling subject and doc type —

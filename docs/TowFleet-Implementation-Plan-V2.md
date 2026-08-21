@@ -4,7 +4,7 @@
 
 **Scope:** two tracks over one backend. **Track A** = TowFleet Web Console (fleet-owner web app, spec §8.3/§9.3) + the shared NestJS backend that powers it (spec §15–§17). **Track B** = the marketplace and the two mobile apps (TowGo customer §9.1, TowPartner driver §9.2) plus the minimum Admin Ops surface (§9.4) they cannot function without — organized in V2 as one shared spine (**B0**) and three surface lanes (**B1 TowGo · B2 TowPartner · B3 Admin Ops**).
 **Source of truth for product behavior:** [Towing-Project-Specification_v3.md](./Towing-Project-Specification_v3.md).
-**Status (10 Aug 2026):** Track A phases 1–8 complete and verified · **the Phase 8 deploy gate is released** (Redis throttler storage + shared refresh fix, both proven across two instances), though two further items belong on it — see Phase 8 · Track A phase 9a next · **Track B Phases 10 (multi-realm identity), 11 (KYC + minimal Admin Ops, the §3.1 gate) and 12 (mobile foundations) are all COMPLETE** — the backend serves four auth realms, the §3.1 supply-side gate is real end to end (a driver can submit KYC, an admin can approve it through a working console, and the driver's own app now enforces the same gate on the online toggle), and both TowGo and TowPartner run real sign-in, real network, and real on-device storage instead of mocks. Track A phase 9a (staging) is next for Track A; **Phase 13 (notifications) is next for Track B**. Track B was never blocked on Track A: Phases 5, 6 and 7 have all landed, so the 16/13/17/19 interlocks are met.
+**Status (20 Aug 2026, after Phase 17):** Track A phases 1–8 complete and verified · **the Phase 8 deploy gate is released** (Redis throttler storage + shared refresh fix, both proven across two instances), though two further items belong on it — see Phase 8 · Track A phase 9a next · **Track B Phases 10 (multi-realm identity), 11 (KYC + minimal Admin Ops, the §3.1 gate), 12 (mobile foundations), 13 (notifications spine), 14 (pricing engine, service catalog, zone & dispatch config) and 15 (booking lifecycle & the §5.1 state machine) are all COMPLETE** — the backend serves four auth realms, the §3.1 supply-side gate is real end to end (a driver can submit KYC, an admin can approve it through a working console, and the driver's own app now enforces the same gate on the online toggle), both TowGo and TowPartner run real sign-in, real network and real on-device storage instead of mocks, the §12.2 trigger matrix has a registry plus a test that fails on an unregistered row, the §7 fare engine prices from admin-editable config behind a 5–10 % commission guardrail, and a customer can create a real booking that locks its fare and commission, mints a hashed collection OTP and legitimately sits in `SEARCHING`. **Phase 16 (driver presence, the location pipeline & mobile maps) is COMPLETE** — §6.1's candidate store exists and is written by every ping, an approved driver goes online through the §3.1 gate and streams location over two doors into one pipeline, the Phase 5 fleet map shows a real human through a fan-out adapter that left `<FleetMap>` untouched (proven across two gateway processes), the customer can finally TYPE AN ADDRESS and drop a pin, and `/drivers/nearby` serves anonymous coarsened supply. **Phase 17 (the dispatch engine) is COMPLETE** — the loop is closed: a booking in `SEARCHING` now runs a progressive-radius search, offers to scored eligible drivers over the `/driver` socket and a high-priority push, and assigns exactly one of them in a four-check transaction backed by a partial unique index; the customer watches real wave transitions on a new `/customer` namespace instead of a timer; `drivers.acceptance_rate` has its first writer, so a quarter of the §6.2 score stops running on frozen seed values; and dispatch config plus §19.8's kill switches are editable without a deploy. Measured against §6.10's p50 < 30 s target, a live bench run assigned every booking at **p50 0.9 s / p90 3.2 s**. Track A phase 9a (staging) is next for Track A; **Phase 18 (job execution & live tracking) is next for Track B**. Track B was never blocked on Track A: Phases 5, 6 and 7 have all landed, so the 16/13/17/19 interlocks are met.
 
 **How to read V2.** Phases **10–21** are the *execution sequence*, unchanged from V1 — the dependency graph, the track-interlock table and the external-dependencies table all reference them, and none of it is renumbered. Lanes **B0–B3** are *ownership*, orthogonal to sequence: **B0** is the shared spine (work serving two or more surfaces, plus pure platform), **B1** is TowGo (customer app), **B2** is TowPartner (driver app), **B3** is Admin Ops (API + `/admin/*` web UI inside `apps/towfleet-web`). Every Track B work item is tagged `[PNN]` and lives in exactly one lane; where an engine and its thin route/UI split across lanes, the semantics are stated once in the engine's lane and the consumer carries a cross-reference. Each phase has one **canonical block in B0** carrying its Goal, Spec targets, Depends on, Effort, status and cross-surface acceptance chain, plus a slice index; the B1/B2/B3 *slices* carry only that surface's work and surface-local verification. A slice of Phase N obeys Phase N's dependencies — lanes never alter the order.
 
@@ -28,10 +28,10 @@
 |---|---|---|---|---|
 | 10 | Multi-realm identity: customer + driver + admin auth | M | **B0** (+ B3 stub) | ✅ Complete |
 | 11 | Driver KYC pipeline + minimal Admin Ops console (**the §3.1 gate**) | L | B0 · B2 · B3 | ✅ Complete |
-| 12 | Mobile foundations: both apps stop being mocks | **XL** | B0 · B1 · B2 | ⬜ Planned |
-| 13 | Notifications & push spine (FCM/APNs, SMS, WhatsApp, SES) | M | B0 · B1 · B2 | ⬜ Planned |
-| 14 | Pricing engine, service catalog, zone & dispatch config | M | B0 · B1 · B3 | ⬜ Planned |
-| 15 | Booking lifecycle & the §5.1 state machine | L | B0 · B1 | ⬜ Planned |
+| 12 | Mobile foundations: both apps stop being mocks | **XL** | B0 · B1 · B2 | ✅ Complete |
+| 13 | Notifications & push spine (FCM/APNs, SMS, WhatsApp, SES) | **L** | B0 · B1 · B2 | ✅ Complete |
+| 14 | Pricing engine, service catalog, zone & dispatch config | M | B0 · B1 · B3 | ✅ Complete |
+| 15 | Booking lifecycle & the §5.1 state machine | L | B0 · B1 | ✅ Complete ² |
 | 16 | Driver presence, the location pipeline & mobile maps | L | B0 · B1 · B2 | ⬜ Planned |
 | 17 | Dispatch engine (progressive-radius) | **XL** | B0 · B1 · B2 · B3 | ⬜ Planned |
 | 18 | Job execution, live tracking & share trip | **XL** | B0 · B1 · B2 | ⬜ Planned |
@@ -40,6 +40,8 @@
 | 21 | Mobile release engineering & launch gates | L | B0 · B1 · B2 | ⬜ Planned |
 
 ¹ **L, now settled: Track A Phase 7 has landed**, so Phase 19 extends an existing ledger rather than absorbing one. It would have been XL otherwise — see Phase 19 · B0.
+
+² **The carve-out is CLOSED as of Phase 16.** The Places/geocoding proxies and TowGo's address autocomplete + draggable map pin did not ship with Phase 15 and were re-homed to Phase 16, which is where a real map first exists. All three shipped there — on a local gazetteer, since no Places key exists yet. See Phase 15 · B1 and Phase 16 · B1.
 
 **Why a second track and not phases 10–21 of one list.** Track A is a tenant-scoped CRUD console over data the seed and simulator fabricate. Track B is a two-sided realtime marketplace whose correctness bar is different in kind (never double-assign, never credit an uncaptured payment, never let an unapproved driver receive a job). They share the backend process, `packages/api-contracts`, the theme bridge and the ledger — but their dependency graphs barely interleave, so splitting them keeps Track A independently shippable, keeps existing numbering stable, and lets the two tracks run in parallel with the small, explicit set of interlocks below. V2 additionally re-homes Track B's work into ownership lanes **B0–B3** without renumbering anything: phases remain the execution sequence every table and the graph below reference; lanes say who owns each slice of a phase.
 
@@ -67,9 +69,9 @@ graph TD
   end
 
   subgraph TB["Track B — Marketplace & Mobile (lanes B0–B3 orthogonal)"]
-    P10["10 · Multi-realm identity"] --> P11["11 · KYC + Admin Ops — §3.1 GATE ✅"]
-    P11 --> P12["12 · Mobile foundations XL"]
-    P12 --> P13["13 · Notifications & push spine"]
+    P10["10 · Multi-realm identity ✅"] --> P11["11 · KYC + Admin Ops — §3.1 GATE ✅"]
+    P11 --> P12["12 · Mobile foundations XL ✅"]
+    P12 --> P13["13 · Notifications & push spine ✅"]
     P12 --> P14["14 · Pricing, zones, dispatch config"]
     P13 --> P15["15 · Booking lifecycle"]
     P14 --> P15
@@ -910,6 +912,17 @@ Why this comes third and why it is minimal: §3.1 makes admin approval a precond
 
 ### ✅ [P12] Mobile foundations: both apps stop being mocks — **COMPLETE (10 Aug 2026)**
 
+> **Acceptance-chain status — read this before treating the phase as closed.** The code half of the
+> chain is complete and verified by construction: the driver app submits KYC through the real Phase 11
+> API, the admin console approves through the real Phase 11 queue, and the driver's online toggle is
+> gated on a **this-session-confirmed** approval (`kycVerified` + `kycStatus === 'approved'`,
+> invariant 64) that a `/kyc/status` refetch flips. What has **not** happened is running that chain on
+> a device: no EAS build exists, so neither app has executed outside a simulator/Expo Go, and the two
+> Maestro flows are authored and reviewed but never run. **Phase 12's cross-surface acceptance chain
+> is therefore unproven end-to-end and stays open against Phase 9a**, which is the step that produces
+> a reachable origin and the first installable builds. Everything else in this phase is verified:
+> `pnpm typecheck` clean across all 9 workspace packages, `pnpm test` 502/502 across 62 backend files.
+
 **Delivered close to the sketch below, with the shape of the backend half narrower than planned and
 the client half wider.** Backend: one new `modules/me` (not per-resource modules) — `GET/PUT /v1/me`,
 full CRUD on `/v1/me/{vehicles,addresses,emergency-contacts}` (vehicles and addresses also get
@@ -920,13 +933,24 @@ dual-realm (customer **and** driver) DPDP trio `DELETE /v1/me`, `GET /v1/me/expo
 partial unique index so a second open deletion request 409s rather than filing twice). The presigned
 upload pattern Phase 11 built for KYC documents was extracted into
 `common/storage/presigned-upload.helper.ts` and now backs both consumers. Client: `env.useMocks` is
-real in both apps (every `DataSource` now has a mock/rest pair, selected by one line in the interface
-file); `client.ts`'s serialized-refresh-on-401 shipped as designed; MMKV replaced the in-memory
+real — **but only for the 9 of 16 `DataSource`s whose backend actually exists after this phase**
+(TowGo: auth, profile, vehicles, addresses, emergency-contacts, privacy · TowPartner: auth, kyc,
+capabilities). The other 7 (TowGo `bookings`/`home`; TowPartner `dashboard`/`earnings`/`jobs`/
+`offers`/`profile`) still hardcode their mock, because every route they would call is a
+customer/driver-realm endpoint that does not exist yet — the only backend routes on those nouns today
+are `fleet/*` (Track A's console). Writing rest sources against 404s to satisfy the plan's literal
+"every `xDataSource` export becomes conditional" would be worse than leaving them; each flips as its
+own phase lands (15 bookings, 16 nearby-drivers, 17 jobs/offers, 19 earnings). `client.ts`'s
+serialized-refresh-on-401 shipped as designed; MMKV replaced the in-memory
 storage stub (see the invariant below — the dependency had moved to a new native-module API since the
 stub was written); a TanStack Query persister is wired. **EAS dev-client builds were not produced** —
 config is complete but the build itself needs an Expo-account login this environment has no
-credentials for (`ToBeDoneEhsan.md`). Google Sign-In on TowGo shipped code-complete but flagged off
-(`GOOGLE_OAUTH_CLIENT_IDS` is still empty server-side). No new `packages/*` workspace package was
+credentials for (`ToBeDoneEhsan.md`). **Google Sign-In on TowGo is a seam, not a shipped flow** —
+what exists is the `env.googleSignInEnabled` flag (default `false`) gating a "Continue with Google"
+`Button` whose `onPress` is `() => {}`, plus the backend's `POST /v1/auth/social` (shipped Phase 10).
+There is no OAuth dependency in the app (`expo-auth-session` is not installed) and no `AuthDataSource`
+method for social sign-in; **the client OAuth flow is not implemented**, deferred until real Google
+OAuth client IDs exist (`SETUP-CHECKLIST.md` item 8 — they do not). No new `packages/*` workspace package was
 created for the client-lib shape — duplicated per app instead (judgment call: the two apps' clients
 differ by realm and by which mutations exist; promote to a shared package only if a third mobile
 surface appears).
@@ -980,6 +1004,111 @@ before Phase 16 wires one.)
 bodyless DELETE — the ordinary case — and `.optional()` alone still rejects `undefined` at the
 top level; only `.default({})` accepts the request ergonomically.
 
+A second, **post-implementation completion audit** (4 gap-hunting auditors — P11, P12-backend,
+P12-mobile, docs — then an adversarial refute pass, 46 candidates → 19 confirmed) ran after the
+review above and found three things the first pass had missed entirely. They are invariants because
+each is invisible to `tsc`, to the backend suite, and to Expo Go:
+
+(66) **Every runtime permission API an app calls must have its Expo config plugin and usage string
+declared in that app's `app.config.ts`.** TowGo shipped `expo-location` and `expo-image-picker` calls
+in three files with neither plugin registered, so a real dev-client/EAS build would carry no
+`NSLocationWhenInUseUsageDescription`/`NSPhotoLibraryUsageDescription` — iOS denies the prompt
+outright and App Review rejects the binary. Expo Go papers over this completely (it ships its own
+omnibus Info.plist), which is exactly why it survived a clean typecheck, a clean review pass and a
+"both apps boot" check. Adding a permission call and adding its plugin are one change, never two.
+
+(67) **A security regression test must assert something only the guard it protects can produce —
+never a bare status code.** Invariant 52's traversal test asserted `.expect(404)` on a raw
+`/v1/files/../../etc/passwd`. Superagent builds its path with `new URL()`, whose WHATWG parser
+collapses `..` **client-side**, so the request left as `/etc/passwd`, matched no route, and returned
+Nest's unmatched-route 404 — byte-identical in status to the guard's own. The test passed, and would
+have passed with `resolveUploadsPath` deleted. Fixed by sending the traversal percent-encoded (it
+survives normalization, and `extractKey`'s `decodeURIComponent` restores the exact signed key, so
+signature verification still passes and the guard is the only thing left to catch it) and asserting
+the body message `File not found`. Any future guard test gets the same treatment: prove the request
+reached the code under test.
+
+(68) **A dual-realm backend route needs its surface in BOTH apps before the phase that owns it
+closes.** The DPDP trio (`DELETE /v1/me`, `GET /v1/me/export`, `POST /v1/me/consent`) is deliberately
+customer-**and**-driver, and Phase 12 shipped the customer half only — TowPartner had no deletion, no
+export and no consent capture at all. Beyond the §20.4 obligation this is a hard store gate: Apple
+requires in-app account deletion of **every** app that creates accounts, so the driver app would have
+failed submission at Phase 21 with the backend already complete and nobody looking at it again.
+
+**Phase 13 invariants that must not regress** (69–75). *Recorded under Phase 12's heading when Phase
+13 landed; split out here so the numbering and the owning phase agree.*
+
+(69) **`NotifyParams.to` can only be produced by a trigger's `resolve()`.** Two of the four
+pre-Phase-13 call sites passed a UUID into a field documented as "E.164 phone or email address" —
+`compliance.service.ts` passed a fleet id, `payouts.service.ts` an owner id. Harmless against
+`LogNotificationAdapter`, and a 400 on every send (or a silent accept) the instant a real adapter
+bound. Producers now call `NotificationService.emit(event, domainIds)` and never see an address;
+`notification-port-usage.spec.ts` fails the build on any `NOTIFICATIONS` import outside
+`src/common/notifications/**`, which is what makes this enforceable rather than aspirational.
+
+(70) **A §12.2 row is either registered or explicitly tagged `unregisteredUntilPhase` — never
+absent.** `matrix-12-2.ts` is a literal transcription of the spec's 16 rows and `registry.spec.ts`
+fails on any row in neither list, printing the deferred ones by name. **Editing a matrix row to make
+the suite pass is the failure this exists to prevent** — if a row is wrong, the spec document is
+wrong and both change together. This is the mechanism that makes each later phase wire its own
+notification in the same commit as its feature, instead of a customer discovering the omission.
+
+(71) **The preference check runs in the fan-out worker, never at a call site, and `alwaysOn`
+bypasses it entirely.** A producer that decides "should I send this?" is a producer that can decide
+wrong, once per emitter, forever. Only the genuinely opt-out-able categories have a preference key at
+all — `promotions` and `weeklySummary` on a subject, plus the fleet console's shipped
+`compliance`/`payouts`/`jobs` toggles — so a user opt-out **cannot** suppress a KYC rejection, a
+payout failure or, from Phase 20, an SOS. Everything else is unsuppressible by construction rather
+than by a default someone could flip.
+
+(72) **A notification never runs inside a request path or a database transaction.** `emit()` writes
+its rows and enqueues; the worker delivers. The best-effort `try/catch` wrappers in
+`payouts.service.ts` and `compliance.service.ts` existed because a provider outage must not roll back
+a completed money transition — enqueueing gives that property structurally instead of by remembering
+to catch it at every new site.
+
+(73) **A push token is device-scoped state, revoked on logout, suspension, rejection and account
+deletion — not merely orphaned.** `devices.push_token` is the only thing in the system that can
+deliver to a handset after the session on it has ended, and it renders on a lock screen without
+anyone unlocking anything. Both apps unregister before clearing the session (the call needs the
+bearer token), and the server revokes independently because a client cannot be relied on to tell it.
+`uq_devices_push_token` closes the shared-depot-phone case: registering a token revokes whoever held
+it. `notification_deliveries.destination` is masked at rest for the same reason — that table has no
+retention purge until Phase 20. Same class as invariants 61 and 63, on a channel that is visible
+without unlocking.
+
+(74) **The in-app notification centre reads the `notifications` row written in `emit()`'s own
+transaction, never a delivery receipt.** A message with no push token, delivered only by the log
+adapter, suppressed by a preference or aimed at a revoked device must still appear in the bell. This
+is what makes the entire spine demonstrable with zero vendor credentials — and it is exactly the
+indirection a later phase would "simplify" away, at which point the centre goes empty in every
+environment that has no Firebase project, including the whole test suite (`QUEUE_ENABLED=false`
+drops every enqueue).
+
+(75) **The push payload's discriminator is `data.event`, declared once in `pushDataPayloadSchema`
+and imported by all three sides.** The backend stamps it, both apps parse the payload through the
+shared schema and switch on it. If the two halves ever named it differently the push would arrive,
+nothing would refetch, and the §9.4.3 acceptance chain would fail silently — a bug invisible without
+a device in hand. Its `invalidate` value is a client query-key path, so it must match the key root it
+targets (`kycKeys.all` is `['kyc']`, so the server sends `'kyc'`, not `'driver.kyc'`).
+
+**Contract corrections — 4 of the 6 landed in full; the other 2 are partial by design.** Landed:
+`BookingStatus` **and** `JobStatus` widened to the full ten-value contract enum with an exhaustive
+`Record<Status, …>` display map in each app (`towgo/features/bookings/statusMeta.ts`,
+`towpartner/features/jobs/statusMeta.ts` — the latter net-new; a partial 3-status copy that had been
+sitting unused in `driverColors.ts` was deleted so one vocabulary owns it); `SavedLocation` gains
+`lat`/`lng`; `Vehicle.type` re-modelled to the customer's own vehicle category; `'cash'` dropped from
+TowGo's `BookingPaymentMethod` **and** TowPartner's `JobPayment` (both now `Record`-keyed labels, so
+adding a method is a compile error rather than a silent fall-through to "Online"). Partial: **paise/
+ISO-8601** — the helpers exist (`formatPaise` in TowGo, alongside the pre-existing rupee `formatINR`
+its 8 callers still use) but `fare`/`dateTimeLabel` fields on still-mocked features are untouched, and
+**`ImageSourcePropType` → `string | null`** — done for the one server-sourced instance the plan named
+(`DriverProfile.avatar`), still in place for TowGo's `Booking.truckImage`/`driverPhoto` and the
+booking flow's driver photo. Both partials follow the same rule: a field is corrected when its
+DataSource becomes backend-real, since the correction is only load-bearing once bytes cross the wire —
+`quickActions`-style bundled artwork stays `ImageSourcePropType` permanently and correctly. The
+remaining fields flip with their own phases (15 bookings, 17 jobs).
+
 **Deliberately deferred, with reasons:** EAS build execution and real device/Maestro execution (both
 need credentials/hardware this environment doesn't have — flows are authored and reviewed, not run); a
 mobile test runner (Jest/RTL) — flagged as a follow-up, not added, to keep an already-XL phase from
@@ -1015,11 +1144,12 @@ Starting position, stated plainly: a repo-wide search finds **zero** fetch/axios
 
 > **Phase 9a (staging AWS) executes here.** See Track interlock.
 
-### ⬜ [P13] Notifications & push spine
+### ✅ [P13] Notifications & push spine — **COMPLETE (10 Aug 2026)**
 
 **Goal:** a queue-backed, multi-channel delivery pipeline with a registry that later phases cannot silently skip, proven by making KYC approval unlock the driver's toggle instantly instead of on the next refetch.
 
-Spec targets: §12 (whole), §9.4.3 AC, §16.6 `config:update`.
+Spec targets: §12 (whole), §9.4.3 AC.
+> **Correction (Phase 13, delivered):** §16.6 `config:update` was listed here and belongs to **Phase 16 · B0**, alongside the ping-cadence bullet that already sits there. It is a `server→driver` socket event, and Phase 13 has no `driver:{id}` room to deliver it on. Nothing in Phase 13 addressed it, and nothing should have. *(Corrected again by Phase 16: this block said the driver realtime surface "arrives in 17". It arrived in **16** — `config:update` cannot be delivered without the `/driver` namespace and the `driver:{id}` room, so Phase 16 built both. Phase 17 inherits the room rather than inventing one.)*
 **Slices:** B1 (notification centre + prefs screen, Apple sign-in enable) · B2 (notification centre, the high-priority Android offer channel).
 
 - `notifications` table + the `devices` table from migration 0006; `POST /v1/{me,driver}/devices` registration with token refresh handling. (Kept whole in B0: two surface-prefixed routes over one device registry serving the whole spine.)
@@ -1028,16 +1158,236 @@ Spec targets: §12 (whole), §9.4.3 AC, §16.6 `config:update`.
   - **MSG91 SMS.**
   - **WhatsApp Cloud API.**
   - **SES** (SMTP in dev). §12.1 lists email as a first-class channel and §12.2 marks it **required** for four rows — *Completed + invoice*, *Payment success/failure (receipt)*, *Compliance doc expiring (30d)* and *Payout processed/failed*. Without it customers never receive an invoice and fleets never receive a compliance-expiry mail. Ship the four templates here; the invoice **attachment** wiring lands with the invoice PDF in Phase 19.
-- **The §12.2 trigger-matrix registry — the durable half of this phase.** A typed registry mapping *event → channels → template → recipient resolver*, plus **a test that enumerates every §12.2 row and fails on any row without a registered handler.** This phase registers only what exists today (OTP → SMS + WhatsApp; KYC approved / rejected / request-info → Push + SMS + WhatsApp) and leaves the rest failing-but-known. **Every later phase wires its own rows in the same commit that emits the event:** Phase 15 *booking confirmed*; Phase 17 *search widening*, *no drivers found*, *driver assigned* (this is the literal §9.1.6 AC — app backgrounded during search → push on match); Phase 18 *en route*, *arrived*, *job started*; Phase 19 *completed + invoice*, *payment success/failure*, *earnings credited per trip*, *weekly earnings summary*, *payout processed/failed*, *dispute update*. The registry test is what makes that non-optional.
+- **The §12.2 trigger-matrix registry — the durable half of this phase.** A typed registry mapping *event → channels → template → recipient resolver*, plus **a test that enumerates every §12.2 row and fails on any row without a registered handler.** This phase registers only what exists today (OTP → SMS + WhatsApp; KYC approved / rejected / request-info → Push + SMS + WhatsApp) and leaves the rest failing-but-known. **Every later phase wires its own rows in the same commit that emits the event:** Phase 15 *booking confirmed*; Phase 17 *search widening*, *no drivers found*, *driver assigned* (this is the literal §9.1.6 AC — app backgrounded during search → push on match); Phase 18 *en route*, *arrived*, *job started*; Phase 19 *completed + invoice*, *payment success/failure*, *earnings credited per trip*, *weekly earnings summary*; Phase 20 *dispute update* (its emitter, `POST /v1/admin/bookings/:id/dispute`, is in the Phase 20 block — corrected when Phase 13 transcribed the matrix). *Payout processed/failed* moved **into Phase 13**, which has a live emitter for it. The registry test is what makes that non-optional.
 - Queue-backed fan-out on `QueuePort` (**Phase 6 dependency**) with retries + exponential backoff + a **DLQ and a depth alarm**; the request path never blocks (§12.3). Outbound vendor calls go through the `ExternalCallPolicy` wrapper from Phase 14 (or, if 14 has not landed, this phase builds it and 14 reuses it — one policy, not four).
 - Server-side notification preferences (TowGo's `notificationPrefsStore` is in-memory booleans today), with transactional and safety notifications always-on. (The spine consults these at send time; the TowGo settings-screen wiring is B1.)
 
 **Depends on:** 11, 12; **Phase 6's `QueuePort`**.
 **Acceptance chain (cross-surface):** on-device proof that admin approval unlocks the driver's toggle **without a manual refetch**, closing the §9.4.3 AC that Phase 11 could only approximate.
 **Verification (B0-local):** supertest with a fake push/SES adapter asserting each *registered* trigger-matrix row fires on the right channels to the right recipients; the registry-completeness test enumerates §12.2 and reports the still-unregistered rows by name; a poison-message test proving DLQ landing and alarm-metric increment.
-**Effort:** M.
+**Effort:** ~~M~~ **L** — re-tagged when delivered. The M estimate predated the mobile half (two apps, a new native module each), the `ExternalCallPolicy` this phase inherited from 14, and four provider adapters. Recorded rather than quietly overrun.
 
-### ⬜ [P14] Pricing engine, service catalog, zone & dispatch config
+<details>
+<summary><strong>Delivered (Phase 13)</strong> — what shipped, what was cut, and what is unproven</summary>
+
+**The durable half.** `common/notifications/registry/matrix-12-2.ts` transcribes all 16 §12.2 rows;
+`triggers.ts` registers 6 and defers 10 with the phase that owns each; `registry.spec.ts` fails on
+any row in neither list and prints the deferred ones by name. Six rows registered: KYC
+approved/rejected/request-info (push + SMS + WhatsApp), compliance doc expiring (WhatsApp + email),
+payout processed/failed (push + SMS + email, fleet recipients). The OTP row is registered as
+`deliveredBy: 'otp_port'` — accounted for, not re-plumbed.
+
+**The `to: <uuid>` bug is gone by construction.** All four pre-13 `notify()` call sites now
+`emit(event, domainIds)`; a trigger's `resolve()` is the only producer of an address, enforced by
+`notification-port-usage.spec.ts`. `PayoutRow.ownerType` was widened from a two-value narrowing to
+the three the `wallet_owner_type` column actually holds — a latent cast the resolver would have
+inherited.
+
+**Deliberate decisions, each with its reason in the code:**
+- **Four per-channel provider switches**, not one, because Firebase / MSG91+DLT / WhatsApp BSP / SES
+  production access arrive months apart and a single switch makes going live all-or-nothing.
+- **OTP stays on `OtpPort`.** Routing it through the spine would write the live plaintext code into
+  `notification_events.payload` — a table with no TTL and no purge until Phase 20 — reversing the
+  hash-at-rest posture `login_challenges.code_hash` has, and putting a 300-second code behind a FIFO
+  that a 400-truck compliance sweep can fill.
+- **`devices.subject_type` normalised `'customer'` → `'user'`** in migration 0010. It was the only
+  polymorphic subject table in the repo using the other spelling, and it had zero rows, so the
+  correction was free now and a data migration later.
+- **Templates are a typed const map, not a table, and the admin template UI is a NON-GOAL.** DLT and
+  Meta bodies are pre-approved and referenced by id; runtime editing breaks compliance rather than
+  enabling it.
+- **`ExternalCallPolicy` built here** (L1102: Phase 13 owns it if 14 has not landed), applied to the
+  notification adapters only. `razorpay-route.adapter.ts` is deliberately NOT migrated onto it —
+  that is Phase 14, where the second consumer appears.
+- **SES uses `@aws-sdk/client-sesv2`**, not a hand-rolled SigV4 signer: unexecuted request-signing
+  crypto that reviews as finished is the failure mode this repo refuses elsewhere.
+- **Four email templates shipped, two wired** (L1100 asks for four; only two have emitters).
+- **No TowPartner preferences screen** — the B2 slice has exactly two bullets and this is not one.
+  `PUT /v1/driver/notification-prefs` ships so the next TowPartner slice adds a screen, not a screen
+  plus an API.
+
+**Three bugs the phase's own tests found, in code that already looked right:**
+1. `subjectNotificationPrefsSchema.partial()` kept each field's `.default()`, so a one-key PUT
+   arrived as every key and reset the others. **The same defect existed in the shipped
+   `fleetSettingsUpdateSchema`** — a fleet owner flipping one console toggle silently reset the other
+   three. Both fixed; the fleet regression test that existed passed either way because every
+   untouched key happened to equal its default, so a second case was added that does not.
+2. `ExternalCallPolicy`'s timeout aborted the signal but did not race the call, so a callee that
+   ignored the signal resolved normally after the deadline — the worker stayed parked for exactly as
+   long as the timeout was supposed to prevent.
+3. `expo prebuild` caught a missing `android.permission.POST_NOTIFICATIONS`. On Android 13+ the
+   prompt would never have appeared and every device would have registered with a null token —
+   invisible on an older emulator. Invariant 66's check earning its place a second time.
+
+**Verified here:** backend `pnpm test` **577 tests / 70 files** (was 502/62); `pnpm typecheck` clean
+across all **8 turbo tasks / 9 workspace packages**; both apps' Metro bundles export clean;
+`expo prebuild --platform android` clean for both, with `POST_NOTIFICATIONS` and the notification
+icon/colour confirmed in the generated manifest. `expo-doctor` reports 18/20 on both apps — the two
+failures are pre-existing repo-wide dependency drift (duplicate hoisted `react-native`, seven Expo
+packages one patch behind), not introduced here.
+
+**NOT verified — no build, no device, no credentials.** The mobile half is **written and configured,
+never executed**. No push token has ever been minted: Expo Go cannot issue one, a dev-client or EAS
+build is required, and none has ever been produced for either app — TowPartner has no EAS project id
+at all. The `job-offer-v1` Android channel exists in code and has never been created on a device;
+neither its Doze bypass nor its presentation has been observed. All four provider adapters are
+written against the vendors' documented request shapes and exercised **only by fakes** — not one has
+called a real vendor, because no credentials for any of the four exist. `AppleIdentityAdapter` is
+real and has its own 14-case spec including the algorithm-confusion attack, but has never seen a
+token Apple minted, and the in-app Apple sign-in flow is not built. The five Maestro flows (three
+new) are authored and reviewed, never run. **Phase 13's cross-surface acceptance chain — admin
+approval unlocking the driver's toggle without a manual refetch — is unproven end to end** and stays
+open alongside Phase 12's, against the same unblocker: Phase 9a plus the first installable builds.
+
+</details>
+
+### ✅ [P14] Pricing engine, service catalog, zone & dispatch config — **COMPLETE (16 Aug 2026)**
+
+<details>
+<summary><strong>Delivered (Phase 14)</strong> — what shipped, what the plan got wrong, and what is unproven</summary>
+
+**Three of this block's own premises were stale, and the repo was right each time.** The migration is
+**0011**, not 0007 — Phases 6, 7, 10, 11, 12 and 13 took 0005–0010 after this text was written.
+`ExternalCallPolicy` **already existed**: Phase 13 built it under the escape clause in this block's own
+notification bullet, and its file header assigns Phase 14 only "apply it to `RoutingPort`/`GeocodingPort`"
+plus migrating `razorpay-route.adapter.ts` onto it — both of which happened here. And "promote
+`pricing.ts`" was half done already: Phase 7 moved the §3.3 bands, the commission formula and the §14.3
+split into `@towing/api-contracts`, so only the slabs and the fixture RNG were left to move.
+
+**The engine.** `db/seed/pricing.ts`'s slabs became `modules/pricing/pricing.math.ts`; `pricing.spec.ts`
+became `pricing.math.spec.ts` with its slab, roadside, commission, split and `toRupees` assertions
+**unchanged except for dropping the `rng` argument** — that is the evidence it was a move. What stayed
+behind is `createRng`/`pick`/`weighted`, which are fixture concerns. **The seed now calls the engine**:
+the RNG picks each booking's scenario (was it at night, did the zone surge) and the engine prices it,
+so the two cannot drift.
+
+**Two spec bugs the promotion surfaced, both in the seed's inline arithmetic:**
+
+1. **Surge was computed on the base fare alone.** §7.5's third worked example is the only place the
+   spec pins the operand: "base ₹3,499 + ₹1,500 accident = ₹4,999 → +20 % surge ₹999.80". ₹4,999 × 20 %
+   is ₹999.80; ₹3,499 × 20 % is ₹699.80. Surge applies to the **pre-surge subtotal**, so every accident
+   recovery and every night tow had been under-charging it. All five §7.5 vectors are now asserted end
+   to end.
+2. **The highway surcharge was drawn randomly per booking** (₹500–₹1,000, `rng`-picked). A rate is
+   configuration, not a property of one booking; it is `charge_config.highway_charge` now.
+
+**Band C is interpolated, not drawn.** §7.3 gives ranges (100–150 km → ₹16,000–₹20,000) and the seed
+picked a random point inside one — fine for fixtures, impossible for a live estimate, which must quote
+the same tow twice at the same price. The fare now scales linearly from the band's floor at its lower
+bound to its ceiling at its upper bound: monotonic in distance, always inside the published range (so
+the promoted range assertions still hold), and the floor/ceiling pair lives in `pricing_rules`.
+**Over 600 km throws `CustomQuoteRequiredError` → 422**, which is §7.3's "custom quote (manual at
+launch)" made real rather than silently priced.
+
+**The service catalogue is a TABLE over the six-value enum, not nine enum values.** Car / bike /
+flatbed / wheel-lift tow all bill as `tow` and differ only in the class that picks the §7.1 or §7.2
+slab — they are catalogue rows, not new economics. Widening `service_type` would have rippled into
+`PricingServiceType`, `resolveBand`, the `bookings` and `jobs` columns and every fixture, and a
+Postgres enum value cannot be dropped, so the decision would not have been reversible. **TowGo's static
+list was advertising two services the platform cannot price** — `lockout` and `winch_out` are in no
+Appendix B row, have no `service_type` and have no §7 fare — while missing four it does define, and its
+six ids matched the backend enum on exactly zero of them.
+
+**Zones stopped being decorative.** `service_zones` had never been read by a request handler:
+`dispatch_config` had zero writers *and* zero readers, `is_highway` was false on every row, and
+`surge_band` was free `text` holding the literal `standard`. Now `ZoneResolverService` runs the repo's
+**first point-in-polygon** — `ST_Covers`, which finally gives `idx_service_zones_geo` (a GIST index
+unused since migration 0002) a query to serve — the seed writes a `dispatch_config` on every zone, and
+a **third standalone zone** exists: an NH-44 corridor with `is_highway`, deliberately overlapping
+Bengaluru Metro so the precedence rule has something real to resolve. `surge_band` is a typed enum and
+Chennai is seeded `high`, so the surge path and TowGo's surge badge are both reachable.
+
+**`ExternalCallPolicy` moved out of `NotificationsModule`** into a `@Global()` `ExternalCallModule`. It
+worked before only because the notification module is global — a routing adapter depending on that was
+an edge nobody declared. Its three env knobs were renamed `NOTIFY_*` → `EXTERNAL_CALL_*`; a Maps
+timeout read out of `NOTIFY_CALL_TIMEOUT_MS` is a variable nobody would find. The one metric it lacked,
+a per-vendor latency histogram, was added — the counter says a vendor answered, only a distribution
+says whether it is about to blow §7.6.
+
+**Phase 14 invariants that must not regress:**
+
+(76) **Surge multiplies the pre-surge SUBTOTAL, never the base fare.** §7's formula block lists the
+addends without naming surge's operand; §7.5's third worked example is the only place the spec pins it,
+and the seed had it wrong. `pricing.math.spec.ts` reproduces all five §7.5 vectors end to end, so the
+operand cannot drift back without a named test failing.
+
+(77) **`baseFarePaise` is deterministic — it takes a rule set, never an RNG.** The `rng` parameter it
+used to take is what made the seed's Band C a random draw. A live estimate that quotes the same tow
+twice at two prices is not a quote, and §7.6's "fare locks when you confirm" means nothing if the
+pre-confirm number is noise.
+
+(78) **The estimate response is built field by field and carries no commission of any kind.** §7.6:
+"the customer sees fares, never commission." The engine computes `commissionPaise` and `driverPayout`
+on the same object the response maps from, so one spread would leak the take rate to every customer.
+`pricing.e2e.spec.ts` asserts the serialised body contains no `commission`, `driverPayout`,
+`platformEarning` or `pool`, and `expectMatchesContract` `toEqual`s rather than parses, so an added
+field fails rather than passes silently.
+
+(79) **`resolveDispatchConfig()` is the only sanctioned reader of `service_zones.dispatch_config`, and
+it never returns an undefined field.** A matcher reading the JSONB directly and falling back to its own
+constants is precisely the hard-coded-ladder outcome Phase 17 is written to prevent — the constants
+would then live where no admin can reach them. The column is nullable, was unwritten for four phases,
+and any unparseable value resolves to the documented defaults.
+
+(80) **`z.record()` keyed by an enum is EXHAUSTIVE in zod 4.** `perService: z.record(serviceTypeSchema, …)`
+silently rejected `{ fuel: … }` because `tow`, `battery` and the rest were absent, so
+`resolveDispatchConfig` accepted the override, stored it, and returned the defaults. `z.partialRecord`
+is the fix. **The test that caught it asserts the override APPLIES, not that it parses** — a parse
+assertion would have passed against the bug.
+
+(81) **A guardrail that must be AUDITED cannot live in the validation pipe.** §3.3 requires out-of-band
+commission attempts to be "rejected **and** audited", and a `ZodValidationPipe` rejection never reaches
+the service that writes `admin_actions`. Pinning `commissionPctSchema` on the update DTO produced a
+tidy 422 with no audit row — half a control. The schema stops at a sanity bound; the 5–10 guardrail
+lives in `AdminConfigService`, which records `commission.update.rejected` **before** throwing and
+outside any transaction the throw would roll back.
+
+(82) **The three copies of the 5–10 guardrail must agree.** `commissionPctSchema`, the
+`ck_commission_config_guardrail` CHECK on `commission_config`, and `ck_bookings_commission_pct_guardrail`
+on `bookings.commission_pct` (which has existed since migration 0002). A config table allowed to hold
+12 % while the booking column rejects it does not fail at the admin's edit — it fails as an insert
+error on the first booking afterwards, unattributable.
+
+(83) **The Haversine adapter returns raw great-circle metres; the ROAD FACTOR is applied in the pricing
+layer.** Straight-line distance under-states a road tow and quoting it loses money on every booking
+taken while Maps is down — but the correction is a §7.4 knob (`charge_config.haversine_road_factor`),
+not a property of geometry. Keeping it out of the adapter leaves true distance available to anything
+that needs it (a geofence check, a proximity sort) and leaves the factor with the other editable rates.
+
+(84) **The §19.2 routing fallback lives in the router adapter, not in its callers, and is tested by
+tripping the breaker rather than stubbing the adapter away.** If each caller had to catch
+`CircuitOpenError`, the second one would forget, and the failure mode is a 500 on a fare quote during
+exactly the outage the ladder exists for. A ladder whose detector has never fired is not a ladder.
+
+(85) **Distance Matrix answers 200 OK with the failure in the body.** `REQUEST_DENIED` and
+`ZERO_RESULTS` both arrive as HTTP 200; trusting the status alone hands the engine `undefined` metres,
+and a 0 km tow prices at the §7.1 minimum slab — silently the cheapest possible answer for a 290 km
+job. Response-level status checking is not optional. The routing timeout is **1.5 s, deliberately
+tighter than §19.3's 2–5 s**, because it sits inside §7.6's 2-second guarantee.
+
+**A Phase 12 gap this phase surfaced but did not close.** Widening `contracts.e2e.spec.ts`'s route walk
+past `/v1/fleet/` immediately turned up **nine `/v1/me` routes with behaviour specs and no contract
+assertion at all**. They are excluded individually rather than by a wildcard, so the debt is countable
+and a tenth uncovered customer route cannot be added without the list growing in the diff. Backfilling
+them is Phase 12's contract coverage, not this phase's.
+
+**Verified here:** backend `pnpm test` **691 tests / 75 files** (was 577/70); `pnpm typecheck` clean
+across all **8 turbo tasks / 9 workspace packages**; migration 0011 applied against a live Postgres with
+**every new CHECK constraint exercised in both directions** (a guardrail nobody has tried to violate is
+an assumption, not a control); `pnpm db:reset` seeds 506 bookings at zero ledger drift; TowGo's Metro
+bundle exports clean. The **golden-file test re-prices all 506 seeded bookings through the live engine**
+and reproduces every stored base fare, band, commission and payout exactly.
+
+**NOT verified — no Maps key, no build, no device.** `ROUTING_PROVIDER` defaults to `haversine` and
+that is the live path: **`GoogleDistanceMatrixAdapter` has never called Google**, because
+SETUP-CHECKLIST item 7 does not exist yet. It is written against the documented request/response shape
+and exercised only by fakes — the same standing as Phase 13's four channel adapters — and production
+refuses to boot on it with no key. TowGo's fare sheet, skeleton rows and surge badge are **written and
+never run on a device**: no EAS build exists for either app, unchanged since Phase 12 and blocked on
+the same Phase 9a. The surge badge in particular has only ever been reachable through
+`EXPO_PUBLIC_MOCK_PRICING_STATE=surge`, because no seeded mock zone surges.
+
+</details>
 
 **Goal:** `POST /v1/pricing/estimate` returns a spec-correct line-item breakdown with a locked commission band — the thing no booking can be created without and no offer card can be rendered without — and every runtime knob §6.7 calls tunable lives in a table with a seeded value.
 
@@ -1047,7 +1397,7 @@ Spec targets: §7 (whole), §3.3, §6.7 (config seam), §16.5, §19.3, Appendix 
 The backend half has no runtime dependency on dispatch, realtime or payments — only on zones and config tables — which makes it the cheapest correct work in Track B and fully parallelizable with 12 and 13.
 
 - **Promote, don't rewrite.** `src/db/seed/pricing.ts` is already a complete, unit-tested §7.1/§7.2/§7.3 implementation — wheel-lift and flatbed base slabs in integer paise, the Band C long-distance ranges, flat roadside fares, band resolution including the accident → Band B minimum, commission with half-up rounding, and largest-remainder §14.3 split math, with a single `toRupees` boundary. It lives under `db/seed` and is imported only by the seeder. Move it to `modules/pricing/pricing.math.ts`; `pricing.spec.ts` moves with it.
-- **Migration 0007** — `pricing_rules`, `charge_config`, `commission_config`, `commission_config_history`, so slabs, night/highway/accident/waiting/surge and band percentages become admin-editable data instead of the `const BAND_PCT` / slab arrays they are today. **Plus the table that holds the §6.2 scorer weights** — proximity/ETA, rating, acceptance, completion, and the stale-ping threshold — named and created *here*, not discovered in Phase 17. Server-side guardrail: commission writes validated against **floor 5 / cap 10**, out-of-band attempts rejected *and* audited — the `bookings` CHECK already enforces 5..10, so the config table must never be allowed to disagree with it.
+- **Migration 0007** *(landed as **0011** — this text predates Phases 6, 7, 10, 11, 12 and 13 taking 0005–0010)* — `pricing_rules`, `charge_config`, `commission_config`, `commission_config_history`, so slabs, night/highway/accident/waiting/surge and band percentages become admin-editable data instead of the `const BAND_PCT` / slab arrays they are today. **Plus the table that holds the §6.2 scorer weights** — proximity/ETA, rating, acceptance, completion, and the stale-ping threshold — named and created *here*, not discovered in Phase 17. Server-side guardrail: commission writes validated against **floor 5 / cap 10**, out-of-band attempts rejected *and* audited — the `bookings` CHECK already enforces 5..10, so the config table must never be allowed to disagree with it.
 - **Zone + dispatch config, seeded — not just the polygon.** `seed.ts` currently inserts each zone with `{ name, area, surgeBand: 'standard' }`, leaving `service_zones.dispatch_config` **NULL** and `is_highway` false on every row. `dispatch_config` is a JSONB column that exists for exactly the §6.7 knobs and has never been written *or* read. This phase: seeds `dispatch_config` on **every** zone (radius ladder, Band C ladder, offers per wave, offer timeout, max search deadline, per-service overrides), seeds **one `is_highway = true` zone** so the highway surcharge path is reachable, and ships a **typed, validated code-level default used when the column is NULL** so Phase 17's matcher can never read undefined and silently fall back to constants — which is precisely the hard-coded-ladder outcome Phase 17 is written to prevent.
 - Zone resolution by point-in-polygon against `service_zones` (the GIST index exists) supplying surge band, highway flag and the radius ladder. `service_zones` has never been read by any handler.
 - **`ExternalCallPolicy` — §19.3, built once here and reused everywhere.** A shared wrapper providing explicit timeouts (2–5 s), bounded retries with exponential backoff **and jitter**, an opossum-style circuit breaker, and per-vendor metrics. Applied first to `RoutingPort`/`GeocodingPort`, then reused by `NotificationPort` and `OtpPort` (Phase 13) and `PaymentGatewayPort` (Phase 19). Without it the §19.2 ladder has no detector: "Maps degraded → Haversine" and "Razorpay down → COMPLETED (unpaid)" both need something that *notices*, and a slow Distance Matrix call otherwise sits inside `POST /pricing/estimate` and blows both the §7.6 ≤ 2 s guarantee and the §19.1 p95 < 200 ms SLO.
@@ -1058,23 +1408,307 @@ The backend half has no runtime dependency on dispatch, realtime or payments —
 **Verification (B0-local):** `pricing.spec.ts` passes unchanged after the move (proof it was a move, not a rewrite); new suites for config-driven slabs, zone resolution, `dispatch_config` schema validation on seed **and** the NULL-column default path, and Distance-Matrix-down → breaker opens → Haversine fallback (asserted by tripping the breaker, not by stubbing the adapter away). **Golden-file test:** re-price a seeded booking through the live engine and assert it reproduces the seed's stored fare and commission exactly — the Phase 3 seed is already §7-correct, so it becomes the oracle for free.
 **Effort:** M.
 
-### ⬜ [P15] Booking lifecycle & the §5.1 state machine
+### ✅ [P15] Booking lifecycle & the §5.1 state machine — **COMPLETE (17 Aug 2026)**
+
+<details>
+<summary><strong>Delivered (Phase 15)</strong> — what shipped, what the plan got wrong, and what is unproven</summary>
+
+**Corrections to this block's own premises.** The migration is **0012**, not 0008. And
+"`users.status` … has never been read or written by any handler" is **wrong**:
+`modules/auth/policies/customer.policy.ts` has read it since Phase 10, so a suspended customer already
+loses their session at the next refresh. The creation guard still earns its place — an access token
+minted a minute before the suspension stays valid until it expires, and that is the window it would
+otherwise book in — but it is a second line of defence, not the first.
+
+**Two live defects found and fixed, neither of them in Phase 15's own code.**
+
+1. **`commissionPaise()` ignored `commission_config`.** It multiplies by the hard-coded `BAND_PCT`
+   constants, while Phase 14 made the table the runtime source of truth. Harmless for exactly one
+   phase — the estimate omits commission by design (§7.6) — and **real money the moment a booking
+   locks one**. Split into `commissionPaiseAtPct(total, pct)` with `commissionPaise(total, band)`
+   delegating at the launch defaults, so the seed and the golden-fare oracle stay byte-identical while
+   the lock path reads the configured percentage. `bookings-create.e2e.spec.ts` sets band A to 9 % and
+   asserts the booking locks 9.
+2. **TowGo re-minted the Idempotency-Key on the 401 retry.** `client.ts` generated it inside `call`,
+   which the refresh path re-enters — so a token expiring mid-confirm sent the retry under a key the
+   server had never seen, and §19.4's protection against a double booking was defeated by the very
+   refresh it needed to survive. Minted once per request now, outside `call`.
+
+**The state machine.** `LEGAL_TRANSITIONS` is §5.1's table transcribed, and `transition()` does the
+guard, the `UPDATE … WHERE status = <from>` and the `booking_status_history` row inside the CALLER's
+transaction — a transition is never the only thing happening, and Phase 17 assigns a driver and locks a
+truck alongside it. It also became the owner of `ACTIVE_JOB_STATUSES`, which existed as two private
+copies (`dashboard.service.ts`, `positions.repo.ts`, the second commenting that it matched the first);
+Phase 15 needed a third, and three copies of a status set is how two of them stop agreeing.
+
+**The booking OTP stopped being plaintext.** `bookings.booking_otp` was `text` holding the live code —
+the same thing Phase 13 refused to do when it kept OTPs off the notification spine, one table over. It
+is `booking_otp_hash` now, SHA-256, the same digest `login_challenges.code_hash` uses. Which created
+the problem the service exists to solve: a digest cannot be un-hashed, so a naive implementation mints
+a new code on every read — and rotating while the customer is reading the code aloud to a driver
+replaces the code being read. The durable store stays hashed; the readable copy lives in Redis for
+exactly its window.
+
+**Deliberate decisions, each with its reason in the code:**
+- **The 30-minute window runs from RETRIEVAL, not confirm.** §5.1 mints at confirm and §9.1.7 wants
+  "one-time, expires 30 min" and "never visible before assignment" — but a search plus a cross-city
+  drive outruns thirty minutes, and a dead code at the handover has no remedy but cancelling a booking
+  the customer still wants.
+- **§3.8's one-active-booking is a partial UNIQUE INDEX, not only a service check.** §19.4 asks for
+  "unique constraints as the final backstop"; two confirms racing each other both pass a
+  SELECT-then-INSERT. `booking-state-machine.spec.ts` parses the migration's `WHERE status IN (…)` and
+  asserts it matches `OPEN_BOOKING_STATUSES` — two sources of truth that must not drift.
+- **"Unpaid prior balance" is a booking left in `completed`.** §5.1 separates delivered from settled,
+  so the condition needs no new table and no customer wallet — `wallet_owner_type` reserves `'user'`
+  and nothing has ever created one. §19.2's "Razorpay down → COMPLETED (unpaid)" lands exactly here.
+- **The chargeable cancellation tiers are computed, reported and REFUSED.** Collecting a fee needs a
+  ledger leg for the driver's compensation, which is Phase 19. A 409 naming the fee is honest;
+  cancelling for ₹0 would be a revenue bug nobody notices for a month. The whole §3.5 ladder is
+  implemented and tested against its three worked examples anyway, because a table people get wrong
+  should be transcribed once, from the spec, with a test — not later from memory.
+- **`no_drivers_found` is NOT terminal.** §9.1.6 gives that screen a "retry / widen" action, and
+  re-searching the same booking preserves the fare locked at confirm; making the customer rebook would
+  re-quote them, possibly at a higher surge, for the platform's own failure to find anyone.
+- **A scheduled booking is created NOW and enters `searching` now** — §5.1 has no scheduled state —
+  but its `dispatch.search` job is enqueued with a matching `delayMs`, so Phase 17 cannot offer
+  tomorrow's tow today.
+- **The dispatch job has a registered no-op worker.** Enqueueing into a queue nobody consumes would
+  pile up jobs and leave the enqueue path unexercised.
+
+**Three bugs the phase's own tests found:**
+1. **The seed passed `uq_bookings_one_active_per_user` by luck.** All six live bookings drew their
+   customer with `pick(rng, customerRows)` — 20 customers, 6 draws, better than an even chance of a
+   collision. It survived only because the fixed RNG happened to miss, and any edit to an earlier draw
+   (Phase 14 made several) would have turned `pnpm db:reset` into a constraint violation. They walk the
+   customer list now.
+2. `positions.e2e.spec.ts` seeded two active bookings for one user to test that a driver join cannot
+   duplicate a truck row. The point was always the driver, never the customer; it seeds two customers.
+3. `TERMINAL_BOOKING_STATUSES` listed `no_drivers_found` while `LEGAL_TRANSITIONS` gave it a retry
+   edge — two declarations in one file contradicting each other, caught by the table-driven spec.
+
+**TowGo.** `confirmBooking` was `navigation.navigate('Searching')`: the app showed a radar animation
+for a booking that had never existed. `SearchingScreen`'s `useSearchSimulation` — a `setTimeout` ladder
+that "contacted drivers" and produced a match after 6.5 s — is **deleted**, and the phase is derived
+from the real §5.1 status polled on §19.2's 10-second REST fallback. It will read "Searching" forever,
+which is the truth. The **active-trip card** is new: before it, leaving the tracking screen lost the
+trip entirely, because nothing else in the app knew one was running (every mocked booking was
+`completed`). Phase 12's deferred contract corrections came due and landed — rupees → paise,
+`date`/`time` display strings → ISO `createdAt`, `require()`d images → nullable URLs — and TowGo's
+invented eleventh status `'scheduled'`, which no server could ever return, is gone in favour of a badge
+derived from `scheduledAt`. The schedule pill (`onPress={() => {}}`), the note row (`setNote` called
+from nowhere) and the "for someone else" pill (a label reaching no request) all became real.
+
+**The schedule picker is presets, not a calendar,** deliberately: a real picker means
+`@react-native-community/datetimepicker`, a native module, and no build has ever been produced for this
+app — a native dependency added now would be invisible until the first build crashed on it, which is
+invariant 66's failure exactly.
+
+**Phase 15 invariants that must not regress:**
+
+(86) **`BookingStateMachineService.transition()` is the only thing that writes `bookings.status`, and
+it takes the CALLER's transaction.** Dispatch, job execution, capture and admin actions all move
+bookings; each writing its own UPDATE means four transition tables that disagree the first time two of
+them touch one booking. Taking `tx` rather than opening its own is what keeps a status change inside
+the assignment or the credit it belongs to — a rollback must not leave a booking claiming to be
+`assigned` with nobody assigned.
+
+(87) **A guard that is enforced in SQL must have its status set asserted against the SQL.**
+`uq_bookings_one_active_per_user`'s `WHERE status IN (…)` and `OPEN_BOOKING_STATUSES` are two copies of
+one rule; if they drift, either a customer is refused a booking the database would allow, or the guard
+passes and the INSERT dies with a raw constraint violation instead of a readable error.
+`booking-state-machine.spec.ts` reads the migration file and compares.
+
+(88) **The booking OTP is a digest at rest and a Redis entry in flight — never a column holding the
+code.** Rotating on every read is the naive consequence of hashing and it is wrong: the customer may
+already be reading the code out. Re-reads inside the window return the same code; only a lapsed window
+mints a new one, and a rotation resets the attempt cap so a customer cannot be locked out of a code
+they were just handed.
+
+(89) **A fare is locked through `PricingService.lock()`, which shares its pipeline with `estimate()`.**
+Two code paths that both price a tow will disagree eventually, and the disagreement is a customer
+charged something other than what they were shown. `estimate()` is a projection of the same result with
+every commission field dropped (§7.6).
+
+(90) **Commission locks at the CONFIGURED percentage, never at `BAND_PCT`.** The constants are the
+seed's oracle and the unit tests'; `commission_config` is what an admin edits. Anything locking money
+through the constant silently ignores that edit — see the defect above.
+
+(91) **Notifications and queue jobs are emitted AFTER the transaction commits.** `ledger.service.ts`
+states it: a worker can read the row before it is visible, and a rollback leaves a job for a booking
+that does not exist. Both are best-effort — a confirmed booking must not fail because a queue is down.
+
+(92) **An Idempotency-Key belongs to the REQUEST, not to the HTTP attempt.** Minting inside the retry
+path defeats the entire mechanism precisely when it is needed — a token refresh mid-confirm.
+
+(93) **A screen must not invent state the server has not reported.** §9.1.6's AC says "wave transitions
+reflect the actual engine state (no fake progress)", and a simulated match is worse than a spinner that
+keeps spinning: it teaches the team that the flow works when nothing behind it does.
+
+**Verified here:** backend `pnpm test` **798 tests / 81 files** (was 691/75); `pnpm typecheck` clean
+across all **8 turbo tasks / 9 workspace packages**; `turbo build` clean; migration 0012 applied against
+a live Postgres with **every new constraint exercised in both directions**, including the one-active
+index accepting a re-book after a cancellation; `pnpm db:reset` seeds 506 bookings at zero ledger drift;
+TowGo's Metro bundle exports clean.
+
+**NOT DELIVERED — Places, and the address entry that depends on it.** This block's slice line scoped
+`GET /v1/places/autocomplete`, `/places/details` and reverse geocode behind a `GeocodingPort`, plus
+TowGo's real autocomplete and draggable map pin (§9.1.5 step 2). **None of it shipped** — there is no
+places or geocoding module, and `BookLocationScreen`'s "Select on map" is still `notReady`. Address
+entry runs on the three seeded `recentLocations` entries, which is why Phase 14 gave them real
+coordinates. The pin needs a rendered map and the proxies need a Places key, so both are **re-homed to
+Phase 16 · B1** rather than left as a silent debt here. Nothing already delivered depends on them: a
+booking made from a recent location prices and locks identically.
+
+**NOT verified — and the list is unchanged in shape from Phase 12.** No EAS or dev-client build exists
+for either app, so **nothing in the TowGo half has run on a device**; the new Maestro flow
+(`customer-booking.yaml`) is authored and reviewed, never executed. The booking **sits in `SEARCHING`
+forever** — correct, since dispatch is Phase 17 — which means `GET /bookings/:id/otp` always 409s in
+real use and every chargeable cancellation branch is unreachable; all three are tested only through
+seeded fixtures. `booking.confirmed` fans out to log adapters, because none of the four notification
+channels has credentials. The `dispatch.search` worker logs and returns.
+
+</details>
 
 **Goal:** a customer can create a real booking that locks its fare, mints its OTB OTP and legitimately sits in `SEARCHING` — the spine every later subsystem hangs off.
 
 Spec targets: §5.1, §3.4, §3.5 (free branch only), §3.7, §3.8, §9.1.4–§9.1.6, §9.1.10, §16.2.
-**Slices:** B1 (booking read/cancel routes, Places, the TowGo booking flow).
+**Slices:** B1 (booking read/cancel routes, ~~Places~~ *(re-homed to Phase 16)*, the TowGo booking flow).
 
 - **`BookingStateMachine` as one transition service** — guarded transitions, `booking_status_history` write and event emission in a single place. Every downstream subsystem (dispatch, tracking, payments, admin actions) calls it. Built any other way, each subsystem invents its own inconsistent transitions.
-- `POST /v1/bookings` — the §3.4 single transaction: fare lock + commission band/% lock + booking OTP mint + dispatch enqueue. `Idempotency-Key` required. Enforces §3.8 one-active-booking-per-customer. **The creation guard also enforces §3.7/§3.8 account state: `users.status` must be `active` (the column and `idx_users_status` exist in `db/schema/users.ts` and have never been read or written by any handler), and a customer with an unpaid prior balance is blocked.** The `bookings` table is fully modelled to spec (fare breakdown, band/pct/amount/payout, OTP columns, share token, cancellation columns, plus CHECK constraints for 5..10 % and `commission + payout <= total`) and is currently written **only by the seed and the simulator**. (The transaction is B0; TowGo's `confirmBooking` in B1 is its caller.)
-- **Migration 0008** — `bookings.truck_id` snapshotted at assign (without it, reassigning a driver's truck silently rewrites historical job attribution and fleet earnings reports; `dashboard.service.ts` already carries the "honest proxy until bookings carry a truck_id" comment); durable dispatch-state columns (`search_wave`, `dispatch_deadline_at`); a **UNIQUE index on `share_token`** (today a plain nullable text column with no index — seq-scan lookups and unguarded collisions).
+- `POST /v1/bookings` — the §3.4 single transaction: fare lock + commission band/% lock + booking OTP mint + dispatch enqueue. `Idempotency-Key` required. Enforces §3.8 one-active-booking-per-customer. **The creation guard also enforces §3.7/§3.8 account state: `users.status` must be `active` (the column and `idx_users_status` exist in `db/schema/users.ts`; ~~never read or written by any handler~~ **corrected by Phase 15: `customer.policy.ts` has read it since Phase 10 — no handler WRITES it, and the admin writer is still Phase 20**), and a customer with an unpaid prior balance is blocked.** The `bookings` table is fully modelled to spec (fare breakdown, band/pct/amount/payout, OTP columns, share token, cancellation columns, plus CHECK constraints for 5..10 % and `commission + payout <= total`) and is currently written **only by the seed and the simulator**. (The transaction is B0; TowGo's `confirmBooking` in B1 is its caller.)
+- **Migration 0008** *(landed as **0012**)* — `bookings.truck_id` snapshotted at assign (without it, reassigning a driver's truck silently rewrites historical job attribution and fleet earnings reports; `dashboard.service.ts` already carries the "honest proxy until bookings carry a truck_id" comment); durable dispatch-state columns (`search_wave`, `dispatch_deadline_at`); a **UNIQUE index on `share_token`** (today a plain nullable text column with no index — seq-scan lookups and unguarded collisions).
 - **§12.2:** register and wire the *booking confirmed* row (Push + SMS + WhatsApp).
 
 **Depends on:** 12, 14.
 **Verification (B0-local):** supertest transition matrix — every legal transition writes history, every illegal one 409s; double-POST with the same idempotency key yields one booking; one-active-booking negative; a `suspended` user and an unpaid-balance user are both refused; OTP not exposed pre-assignment. **The booking correctly sits in `SEARCHING` forever at the end of this phase** — that is the honest end state, since dispatch is Phase 17, and it is fully verifiable.
 **Effort:** L.
 
-### ⬜ [P16] Driver presence, the location pipeline & mobile maps
+### ✅ [P16] Driver presence, the location pipeline & mobile maps — **COMPLETE (19 Aug 2026)**
+
+<details>
+<summary><strong>Delivered (Phase 16)</strong> — what shipped, what the plan got wrong, and what is unproven</summary>
+
+**Corrections to this block's own premises.**
+- The migration is **0013**, not 0008 — and it adds **no columns at all**. Every field this phase
+  persists already existed and had never been written: `drivers.current_location` / `last_ping_at`
+  (declared 0001, GIST-indexed 0002 for "the progressive-radius nearest-driver search"),
+  `drivers.current_zone_id` (0007, an explicit schema-only seam) and `booking_location_path` (0001,
+  zero writers). 0013 is three indexes: `idx_drivers_zone`, a **partial GIST**
+  `idx_drivers_online_geo` (`WHERE is_online AND kyc_status = 'approved'`) for the §19.2 PostGIS
+  rung — 0002's `idx_drivers_geo` is unfiltered and would scan every driver who has ever pinged —
+  and `idx_bookings_driver_active` for the breadcrumb insert's join.
+- **"the socket `location:update` ingress on the Phase 5 gateway" was not possible as written.**
+  `/fleet` ships a deliberately EMPTY `ClientToServerEvents`, and its guarantee is that nothing
+  client-supplied can reach a room name. Widening it would have spent the console's guarantee to buy
+  the driver app a message it can have on its own namespace. Phase 16 adds a **separate `/driver`
+  namespace** instead; `/fleet`'s type is untouched.
+- The correction under Phase 13 says the driver realtime surface "arrives in 17". It arrives **here** —
+  `config:update` is listed in this block, and it needs a `driver:{id}` room to be delivered on.
+
+**The candidate store is a NEW key scheme, not a rename.** `trucks:online:{fleetId}` is keyed by truck
+and by tenant — right for one fleet's console map, wrong for a marketplace matcher, which searches a
+geography for anyone who can take the job across every fleet including the independents who belong to
+none. `drivers:online:{zoneId}` sits beside it and **both are written by every ping**.
+
+**The `seq` compare-and-set is one Lua script, and that is the phase's most load-bearing decision.**
+The obvious implementation is HGET, compare in Node, HSET. Across N Fargate tasks that is a
+read-modify-write race — two pings from one handset routinely land on two tasks (a REST post and a
+socket frame, or two POSTs over a keep-alive pool), both read the same stored seq, both write, and the
+OLDER one can win. "Late packets discarded server-side" would then hold on one node and fail on a
+cluster: true in every test and false in production. `location-pipeline.e2e.spec.ts` fires twenty
+shuffled concurrent pings and asserts the highest survives — the one test a Node-side compare fails.
+
+**Deliberate decisions, each argued in the code:**
+- **Liveness is ping freshness, and the threshold is read from `dispatch_config.stale_ping_seconds`,
+  not from `presenceFor()`.** That helper is the shared DISPLAY rule (a fixed `PRESENCE_STALE_MS`,
+  right for greying a marker in a browser); dispatch eligibility is a §6.7 admin knob an operator can
+  widen during a network incident. Their agreeing at default values is a coincidence, not a contract.
+- **Disconnect is not going offline.** A driver who loses their socket in a lift is still dispatchable
+  while their last fix is fresh and resumes over REST with no state changed. Evicting on disconnect
+  would make availability depend on TCP.
+- **The hot hash caches `fleetId`/`truckId` at go-online.** A ping arrives every 3 s per active driver;
+  resolving `drivers.assigned_truck_id → fleets.id` from Postgres on each would put a join on the
+  hottest path in the system. The **tunnel case** is handled explicitly: the hash carries a 30 s TTL
+  and the idle cadence is 10 s, so it survives the steady state — a driver out of signal for longer
+  comes back to an expired hash and is REHYDRATED from the authoritative row and retried once, rather
+  than told they are not online, which they are. That path also re-checks approval.
+- **Going online requires a current fix and refuses one outside every zone** (`driver_outside_zone`,
+  422). §6.1 partitions by zone, so a driver with no zone is in no partition — online in their own UI
+  and invisible to every search. That failure is silent and unfalsifiable from the handset.
+- **The breadcrumb insert finds its booking with its own SELECT.** No per-driver "which job is this"
+  cache to keep warm, to invalidate when Phase 17 assigns, or to get wrong when a job completes
+  mid-flush.
+- **`/drivers/nearby` SNAPS positions onto a ~100 m grid rather than jittering them.** Jitter looks
+  equivalent and is catastrophically weaker: it re-rolls per request, so a client polling every few
+  seconds averages the noise away and recovers the true point to within metres — the privacy property
+  evaporates for exactly the customer patient enough to break it. A grid snap adds no information no
+  matter how long anyone watches. The longitude step comes from the **snapped latitude band**, not
+  each point's own latitude; deriving it per point put two drivers four metres apart on two cells
+  differing in the sixth decimal, which is one marker visually and two arithmetically. Found by the
+  co-located-drivers test, fixed in `coarsen.ts`, pinned by `coarsen.spec.ts`.
+- **§11.9's forbidden fields were deleted, not merely unused.** TowGo's `NearbyDriver` carried `name`,
+  `vehiclePlate`, `rating` and `etaMinutes` from Phase 12's mock. Showing "Suresh, 4.8★, 3 min away"
+  before dispatch has run promises a driver the matcher has not chosen. The e2e asserts over the whole
+  serialised response, not field by field.
+
+**One live defect found outside this phase's own code.** An admin **suspension revoked sessions and
+devices but left the driver in the candidate store** — Redis knows nothing about tokens. A suspended
+driver there is phantom supply: dispatch scores them, locks an offer against them, and waits out the
+timeout while the customer's search widens for no reason. `AdminDriversService.decide()` now calls
+`DriverPresenceService.evictRevoked()` in the same request, best-effort.
+
+**Places shipped on a local gazetteer, and that is a permanent path.** `GeocodingPort` mirrors
+`RoutingPort` file for file: a `google_places` adapter written against the documented shapes and
+**never executed against Google**, a `LocalGazetteerAdapter` over 21 Bengaluru/Chennai localities plus
+`service_zones`, and a router that degrades google → local. `GEOCODING_PROVIDER` defaults to `local`;
+production refuses `google_places` with no key, exactly as `ROUTING_PROVIDER` already does.
+`geocoding-fallback.spec.ts` trips the real breaker rather than stubbing the adapter away, and asserts
+the open circuit **stops calling the vendor** — a fallback that still made the request passes every
+other check. A legitimately empty Google result deliberately does NOT degrade: falling through to a
+21-entry gazetteer would make the two rungs disagree about what exists.
+
+**The map is key-gated, not switched outright.** iOS renders through Apple Maps with no key, no
+billing account and no configuration — so the customer map is fully real there today. Android has no
+keyless provider: without a Maps SDK key `react-native-maps` draws a blank grey grid with a Google
+watermark, which is strictly worse than the themed placeholder because it looks like the app is
+broken rather than like a map is pending. `configureMaps()` is a boot-time SLOT rather than an env
+read inside `@towing/ui`, because that package is compiled from source by both apps and must not
+depend on a variable only one defines. **No consumer of `<MapPreview />` changed** — the seam's
+Phase-12 header comment promised exactly this and it held.
+
+**`react-native-maps` went into BOTH apps.** TowPartner draws no map until Phase 18, but `@towing/ui`
+is compiled from source by both and an unconditional import there breaks whichever app lacks the
+module — the same trap the Reanimated slots exist for. Since this phase already forces a TowPartner
+native rebuild for `expo-location` and `expo-task-manager`, taking the module now costs one rebuild
+instead of two.
+
+**NOT verified — and the shape is unchanged from Phase 13.** No EAS or dev-client build exists for
+either app, so **nothing in the mobile half has run**: not one map tile, not the Android foreground
+service, not the background task, not the ping buffer through a real tunnel, not the prominent
+disclosure a Play reviewer will read, and not the §11.10 6–8 %/h battery target. `expo prebuild`
+emits the five location permissions and expo-location's own manifest contributes
+`LocationTaskService` with `foregroundServiceType="location"`; both apps' Metro bundles export clean.
+That is the whole of the mechanical evidence. **The `/driver` socket has never been opened by a
+handset** — only by `socket.io-client` inside the backend's own suite. The **Play background-location
+declaration has not been filed**, and that review can reject weeks later (SETUP-CHECKLIST item 3).
+
+**Also unproven for a reason that is not about devices:** nothing assigns a driver until Phase 17, so
+the 3 s on-job cadence and the `booking_location_path` sample are exercised only against seeded
+bookings, and `/drivers/nearby` has never been read by a customer who then got matched.
+
+**Verified here:** backend `pnpm test` **901 tests / 89 files** (was 798/81 — 100 new tests across 8 new
+files); `pnpm typecheck` clean across all **8 turbo tasks / 9 workspace packages**; migration 0013
+applied against a live Postgres; `pnpm db:reset` + `pnpm sim:drivers` drives seeded approved drivers
+into the candidate store and evicts them cleanly on shutdown (**7 of 8 fleet-affiliated with an
+assigned truck**, which is the acceptance fixture, now pinned by `seed.spec.ts`); the simulator's Redis
+writes were diffed against the field names `PresenceStore.searchZone` reads, because a drift there
+would be invisible to every test; `expo prebuild --platform android` clean on **both** apps with the
+five location permissions emitted and `expo-location`'s own manifest contributing
+`LocationTaskService` with `foregroundServiceType="location"`; **both** apps' Metro bundles export
+clean. The cross-node acceptance chain runs as an automated test
+(`driver-multi-instance.e2e.spec.ts`), not as a manual rehearsal.
+
+</details>
 
 **Goal:** an approved driver can go online and stream location; the fleet map shows a real human instead of a simulated truck, and the customer's home screen renders a real map with real nearby-driver markers.
 
@@ -1096,14 +1730,137 @@ The framing that determines the sequence: **the same Redis writes that draw the 
 **Verification (B0-local):** two gateway processes prove cross-node fan-out (ALB rehearsal). Supertest: a driver whose ping is aged past 15 s disappears from the candidate query (the `/drivers/nearby` half of that assertion is B1); out-of-order `seq` is discarded.
 **Effort:** L.
 
-### ⬜ [P17] Dispatch engine (progressive-radius)
+### ✅ [P17] Dispatch engine (progressive-radius) — **COMPLETE (20 Aug 2026)**
+
+<details>
+<summary><strong>Delivered (Phase 17)</strong> — what shipped, what the plan got wrong, the two bugs only a live run found, and what is unproven</summary>
+
+**Corrections to this block's own premises.**
+- **"an empty wave advances immediately" is wrong as literally written, and it took a live backend to
+  prove it.** Implemented literally — `nextDelayMs = 0` — an empty wave re-enqueues instantly, finds
+  nothing, and re-enqueues instantly. `pnpm bench:dispatch` drove a booking to **wave 3992 in under
+  two minutes**, hammering Redis and Postgres the whole way, while the unit test asserting
+  `nextDelayMs === 0` stayed green. What the rule actually means is "do not wait out a twenty-second
+  offer timeout that nobody is holding". `EMPTY_WAVE_DELAY_MS = 2_000` keeps the whole benefit — the
+  five-rung ladder is walked in ten seconds instead of a hundred — and cannot spin. The test now
+  asserts `0 < nextDelayMs < 5_000`, with a docblock recording that **a unit test cannot see a hot
+  loop**; that is what the bench script is for.
+- **The `search_widening` notification is `alwaysOn: true`, not a preference-gated transactional.**
+  The instinct was the opposite and `registry.spec.ts`'s §12.3 invariant was right: the only keys in
+  `SUBJECT_NOTIFICATION_PREF_DEFAULTS` are `promotions` and `weeklySummary`, so `alwaysOn: false`
+  would consult a preference key that does not exist. A customer watching a search cannot opt out of
+  being told it widened — that is the search, not marketing.
+- **The accept transaction's re-check needed a fourth condition the block did not name.** "Still
+  `SEARCHING` → still eligible" omits *this driver was actually offered this booking, and that offer
+  is still `offered`* — without it any authenticated approved driver could accept any searching
+  booking by id. The predicate `outcome = 'offered'` on the `dispatch_attempts` update is also what
+  makes a double-tapped accept idempotent rather than a second assignment.
+- Migration is **0014** and adds **no tables and no columns** — `dispatch_attempts` has existed since
+  0001 with zero readers and zero writers, and 0012 already added `bookings.search_wave` /
+  `dispatch_deadline_at`. What was missing was protection: `uq_bookings_one_active_per_driver`
+  (partial UNIQUE, the driver-side mirror of 0012's customer-side §3.8 index),
+  `idx_dispatch_attempts_driver` on `(driver_id, offered_at DESC NULLS LAST)` for the acceptance-rate
+  recompute, and `ck_dispatch_attempts_outcome` pinning the five-word outcome vocabulary that had
+  lived only in a trailing column comment.
+- **`KillSwitchService` is in `common/`, not in `modules/dispatch/`** as the plan's file table had it.
+  All three realtime ticket routes read the force-polling switch, so a dispatch-owned service would
+  have made `BookingsModule → DispatchModule → BookingsModule` a cycle. It is `@Global` and fails
+  **open** on every read: a Redis outage must not pause dispatch.
+
+**The second bug a live run found, and the more dangerous one: read-repair was evicting live drivers.**
+`PresenceStore.searchZone` pipelines a `HGETALL` per candidate and treats a missing hash as an expired
+driver, `ZREM`-ing them from the zone GEO set — correct in itself, because members carry no TTL of
+their own. It was applying the same treatment to a pipelined command that came back with an **error**,
+so one transient Redis blip permanently deleted that driver from the candidate store until their next
+go-online. Found while investigating "ten drivers online, zero in range". The fix is one line — `if
+(error) continue;` — and the distinction is the whole point: *absent* is evidence, *unknown* is not.
+
+**The engine is plain public methods with one-line queue workers over them, and that is load-bearing
+rather than stylistic.** `QUEUE_ENABLED=false` across the entire suite (`test/setup.ts` — a live
+worker on the shared test Redis would race every spec), so `runWave`, `expireOffer`, `redispatch` and
+`giveUp` are called directly by the 85 dispatch specs. `runWave` returns a `WaveOutcome` rather than
+only logging, because the §6.4 empty-wave rule is otherwise invisible to every test.
+
+**Deliberate decisions, each argued in the code:**
+- **`expiresAt` is an ABSOLUTE server instant, never `expiresInSeconds`.** TowPartner's offer type
+  carried the relative form and the screen counted down from it locally, so every second of latency
+  and any clock the handset kept made the driver's window *longer* than the server's — and two
+  drivers could believe they held the same booking. `useOfferCountdown` recomputes `expiresAt - now`
+  every 250 ms and is allowed to reach zero and stay there.
+- **The offer lock is taken BEFORE the `dispatch_attempts` row, and both before any I/O.** Ordering
+  the other way leaves a window where a driver has an audit row but no lock, and a concurrent wave
+  can offer them a second booking inside it.
+- **Money on the offer comes from the values LOCKED on the booking at confirm (§3.4), never from live
+  config.** An admin editing the commission band mid-search must not change what a driver was
+  offered — and the offer shows gross → commission (band + %) → **net**, because the card previously
+  showed one unqualified number which was the gross (§9.2.2).
+- **Acceptance rate is RECOMPUTED over a rolling 30 days, not incremented.** An incremented counter
+  drifts and can never be reconciled; `revoked` is excluded from the denominator, because a driver
+  whose offer was cancelled out from under them did nothing; and it stays **null** rather than 0 when
+  there is no signal at all. The scorer treats null as `NEUTRAL = 0.5` — a cold-start trap otherwise,
+  where a brand-new driver scores 0 on 30 % of the weights and is never offered the job that would
+  give them a history.
+- **Candidate selection narrows in Redis, then reads Postgres ONCE.** `DriverCandidatesRepo` gives
+  ids, coordinates and freshness; the §3.2 facts Redis does not hold (vehicle class, long-distance
+  opt-in, truck compliance, an existing active job) come from one batched join over those ids, and
+  the per-driver offer locks are checked last because they are the cheapest to invalidate.
+- **The §19.2 PostGIS rung was written in the same commit and is asserted, not assumed.** Flushing
+  Redis mid-search still matches. `candidatesNear()` pre-filters approval in SQL, so the degraded-rung
+  test asserts an exclusion that SQL *cannot* produce (`wrong_vehicle_class`) — otherwise it would
+  pass without the shared §3.2 filter ever running.
+- **The deadline terminates a search, not the last rung.** 5 rungs × 3 offers × 20 s = 300 s against
+  a ~180 s deadline; the arithmetic is in the code beside the check.
+- **§6.5 re-dispatch resumes at the stored wave and keeps the exclusion set; §9.1.6 retry resets the
+  wave and keeps it.** Different rules for a reason: a cancelled assignment interrupted a search that
+  was working, while `no_drivers_found` means the ladder was already exhausted and resuming at the
+  widest rung would just repeat it.
+- **`booking:status` is emitted on assign, not left to the customer's poll** — caught by the
+  cross-node realtime spec. The customer's searching screen deliberately runs a slow poll *because* it
+  has a socket; without the emission it would sit on a spinner for ten seconds after the match.
+
+**Also shipped:** the `/customer` namespace (third gateway, booking id carried **in the ticket**, so
+"nothing client-supplied reaches a room name" survives its third namespace); `GET/PUT
+/v1/admin/dispatch-config` (`@Roles('super_admin','operations')` — deliberately not finance — audited
+through `AdminAuditService`, `money` bucket, and zone rows carry both the raw editable `override` and
+a display-only `resolved`, so an admin's first save does not freeze today's defaults into data); the
+four §12.2 rows (`job.offered` high-priority push, `booking.driver_assigned`,
+`booking.search_widening`, `booking.no_drivers_found`); §19.8's three kill switches, read at wave
+start and failing open; and `pnpm bench:dispatch`, which drives real `POST /v1/bookings` → waves →
+accept against a running backend.
+
+**Client:** TowGo's `SearchingScreen` now shows real wave transitions — `driversContacted` was
+hard-coded 0 and the `widening` phase was unreachable — over a `/customer` socket merged with the
+REST poll, and its retry button posts a real re-search. TowPartner gained `OfferTakeoverScreen`
+(`fullScreenModal`, gesture disabled so a swipe cannot decline a job by accident, countdown ring,
+haptics at arrival and at five seconds, the net large), `AssignedJobScreen` (which Phase 18 extends
+rather than replaces), and `job:offer` / `job:revoked` on the `/driver` socket — applied by **module
+functions**, not by callbacks closed over the home screen's render, so an offer arriving while the
+driver is reading their earnings still lands.
+
+**Unproven, and honestly so.** **Nothing has run on a device** — there is still no dev-client build
+for either app, so the takeover, the ring, the haptics and the high-priority offer push have never
+been seen, and the two-device acceptance chain (customer confirms → driver's phone takes over →
+accept → both see `ASSIGNED` within 1 s) has not been performed. The §19.7 game-day worker kill is
+asserted as a *property* (calling `runWave` again after a simulated loss resumes at the right wave
+with the right exclusions) rather than performed, because `QUEUE_ENABLED=false` makes a literal kill
+impossible. `drivers.rating` is still a seeded default until Phase 19 — 15 % of the score.
+
+**Verified:** `pnpm test` **1001 tests / 95 files green** (85 in `modules/dispatch` alone), `pnpm -r
+typecheck` clean across all 9 workspace packages, migration 0014 applied against a live Postgres,
+both apps' Metro bundles export clean, `expo prebuild --platform android` clean on both.
+`pnpm bench:dispatch` against a live backend: 4 bookings / 10 drivers / 70 % accept →
+**all 4 assigned, p50 0.9 s, p90 3.2 s** against §6.10's 30 s / 90 s targets, max wave 2. The
+adversarial run at 25 % accept reached wave 72 over 150 s — bounded, deadline-terminated and correct.
+
+</details>
+
 
 **Goal:** a booking in `SEARCHING` finds a driver — offered, accepted, atomically assigned — with no double-offer and no double-assignment.
 
 Spec targets: §6 (whole), §3.2, §3.4, §6.7 + §16.5 + §19.8 (config & kill switches), §9.1.6, §9.2.2.
 **Slices:** B1 (real search UI replacing the simulation) · B2 (the offer takeover + thin accept/reject routes) · B3 (dispatch-config API).
 
-**Architecture locked before the first line of code:** dispatch state is durable and single-owner — BullMQ delayed jobs (Phase 6 `QueuePort`) + a Redis lock per booking + wave state persisted on the booking row (migration 0008). Twenty-second offer timers as in-process `setTimeout` over N stateless Fargate tasks produce **double-assignment** — two drivers against one fare-locked booking — which corrupts the ledger rather than degrading UX. `dispatch_attempts` is an append-only audit log, not state; it is not a substitute.
+**Architecture locked before the first line of code:** dispatch state is durable and single-owner — BullMQ delayed jobs (Phase 6 `QueuePort`) + a Redis lock per booking + wave state persisted on the booking row (~~migration 0008~~ — `search_wave` and `dispatch_deadline_at` **already landed in migration 0012**; Phase 17's own migration is **0014**). Twenty-second offer timers as in-process `setTimeout` over N stateless Fargate tasks produce **double-assignment** — two drivers against one fare-locked booking — which corrupts the ledger rather than degrading UX. `dispatch_attempts` is an append-only audit log, not state; it is not a substitute.
 
 - **`modules/dispatch`** — candidate selection via Redis `GEOSEARCH` on `drivers:online:{zone}` **plus** the PostGIS `ST_DWithin` / KNN fallback path written in the same commit (§19.2 requires that Redis-degraded falls back to direct PostGIS; a ladder that has never run is not a ladder). `distanceMetersSql()` already exists.
 - The §3.2 eligibility filter — the join point where KYC (11), presence + ping freshness (16), capabilities (11), zone (14) and truck compliance (Phase 4's `non_compliant` exclusion status) must **all** already be functioning. It cannot be built earlier.
@@ -1132,7 +1889,7 @@ Spec targets: §5.2, §9.1.7, §9.2.3, §11.4–§11.7, §11.10, §16.6.
 - **`drivers.completion_rate` and `total_trips` get their writers here** — incremented on `complete`, penalized on driver cancel / `unable`, computed **inside the same transition service** so the numbers reconcile against `booking_status_history` rather than drifting from it. Together with Phase 17's acceptance rate and Phase 19's rating rollup, this retires the last of the four frozen seed columns feeding the §6.2 scorer.
 - **ETA engine (§11.5)** — Directions at assignment (through the Phase 14 `ExternalCallPolicy`); recompute every 60 s, on > 200 m deviation, > 90 s stationary, or a status change; **±40 % smoothing** so the displayed ETA never jumps without a route change to explain it; `eta:update` events. Straight-line fallback when the Directions breaker is open.
 - Masked calling behind a new `TelephonyPort` (absent from §16.2 — added here). **Defer in-app chat to Phase 20** — §17 has no messages table and this phase is already XL; masked call satisfies the contact requirement.
-- **Mobile maps, part two — the largest client rebuild in the plan.** Phase 16 installed `react-native-maps` behind the `MapPreview` seam and shipped markers, user location and camera fit, so **no new native module lands here**. This phase adds the parts that need a route: interpolated bearing-rotated driver markers, snapped Directions polylines, auto-fit camera with pan-pause + a re-center chip, and ETA-driven camera behaviour. (Shared `packages/ui` map components serving both apps; the TowGo-specific deletions ride B1's TrackingScreen rebuild.)
+- **Mobile maps, part two — the largest client rebuild in the plan.** Phase 16 installed `react-native-maps` behind the `MapPreview` seam **in both apps** and shipped markers, user location, a one-shot camera fit and the accuracy halo, so **no new native module lands here**. Note what Phase 16 deliberately did NOT do: the camera fit is one-shot precisely because re-fitting on every ping fights the customer's pan, and the pan-pause plus re-center chip that solve it properly are this phase's. This phase adds the parts that need a route: interpolated bearing-rotated driver markers, snapped Directions polylines, auto-fit camera with pan-pause + a re-center chip, and ETA-driven camera behaviour. (Shared `packages/ui` map components serving both apps; the TowGo-specific deletions ride B1's TrackingScreen rebuild.)
 - §19.2 fallback in both apps: built-in REST polling every 10 s when the socket is unavailable.
 - **§12.2:** register and wire *driver en route*, *arrived* and *job started* (Push + WhatsApp).
 
@@ -1150,13 +1907,14 @@ Spec targets: §14 (whole), §3.3, §3.5 (chargeable branches), §9.1.9, §9.1.1
 
 **This extends Track A Phase 7; it must not duplicate it.** Phase 7 delivers `LedgerService` as the sole `wallet_transactions` writer, the split math, `PayoutProviderPort` + the Razorpay Route sandbox adapter, and the fleet's Route linked account. **If Phase 7 has not run when this phase starts, pull it in wholesale — two ledger writers is not a survivable state — and this phase's effort becomes XL, not L.** The Phase 3 seed already writes the entire money path end-to-end (payment row → commission debit → driver share credit → fleet share credit → payout debit) with SQL invariants asserted at exit; treat `seed.ts` as the executable specification for `LedgerService` rather than inventing a second transaction shape.
 
-- `PaymentGatewayPort` + Razorpay adapter (through the Phase 14 `ExternalCallPolicy`); `POST /v1/payments/:bookingId/capture` (idempotent, `@ThrottleBucket('money')` — the 20/min bucket is configured in `throttler.config.ts` and currently has zero users); a **signature-verified webhook route** driving `COMPLETED → PAID` (required by §14.2, absent from the §16 endpoint table).
+- `PaymentGatewayPort` + Razorpay adapter (through the Phase 14 `ExternalCallPolicy`); `POST /v1/payments/:bookingId/capture` (idempotent, `@ThrottleBucket('money')` — the 20/min bucket is configured in `throttler.config.ts`; ~~currently has zero users~~ **corrected by Phase 14: it has six, from Phase 7 onward**); a **signature-verified webhook route** driving `COMPLETED → PAID` (required by §14.2, absent from the §16 endpoint table).
 - **Reconciliation sweep as a BullMQ repeatable job (§19.3), not a cron.** A 5-minute sweep for missed webhooks, scheduled on **Phase 6's `QueuePort`** with **a Redis lock per booking**. `apps/backend/package.json` has neither `bullmq` nor `@nestjs/schedule` today; implemented as `setInterval` or `@Cron` it runs N times concurrently across N Fargate tasks against the same uncaptured payment — the exact double-credit failure mode Phase 17 refuses to accept for offers. Webhook retry rides the same queue.
 - **Credit occurs only on capture.** The booking legitimately sits at `COMPLETED (unpaid)` indefinitely when Razorpay is down (§19.2 — the breaker from Phase 14 is what detects it), so the driver wallet must never assume a credit at completion. Commission retained at the **locked** %; a fleet driver's pool splits into two ledger legs in one transaction (`fleet_driver_shares` exists).
 - Invoice PDF generation via `StoragePort`; the SES invoice-attachment wiring against Phase 13's email adapter. (The customer-facing `GET /v1/bookings/:id/invoice` download rides B1.)
 - **`ratings` table + `POST /v1/bookings/:id/rate`** (two-way) + a rollup into `drivers.rating`. (B0: called by both apps.) Not cosmetic: §6.2 gives rating 15 % of the dispatch score, so **the Phase 17 scorer stops running on a seeded default here** — the last of the four scorer inputs to get a real writer.
 - **Chargeable cancellation (§3.5)** — 2–10 min partial fee, > 10 min or driver en route → full base fare with driver compensation, all amounts from `charge_config`. Refunds and dispute reversals as **compensating ledger entries, never edits**.
-- **§12.2:** register and wire *completed + invoice* (incl. email), *payment success/failure receipt* (incl. email), *earnings credited per trip*, *weekly earnings summary*, *payout processed/failed* (incl. email), *dispute update*. **§22.1:** emit `booking_completed`, `payment_success`, `payment_failure`, `booking_cancelled` (server-emitted at ledger/state-machine truth points; `payout_requested` is B2's client-journey emit).
+- **§12.2:** register and wire *completed + invoice* (incl. email), *payment success/failure receipt* (incl. email), *earnings credited per trip*, *weekly earnings summary* (incl. email), *dispute update*. **§22.1:** emit `booking_completed`, `payment_success`, `payment_failure`, `booking_cancelled` (server-emitted at ledger/state-machine truth points; `payout_requested` is B2's client-journey emit).
+>   **Correction (Phase 13, delivered):** *payout processed/failed* is already registered and wired — `payouts.service.ts` has had a live emitter since Phase 7, so Phase 13 claimed the row rather than leaving it unregistered for two more phases. Phase 19 adds only its DRIVER recipient; the fleet-owner half is done. *Dispute update* moved to Phase 20, where its emitter lives.
 
 **Depends on:** 18; **Track A Phase 7**; **Phase 6's `QueuePort`**.
 **Verification (B0-local):** extend the existing seed invariants (wallet = SUM ledger; commission + payout = total; ledger legs = payout) to cover every path this phase adds. Idempotent double-capture and a replayed webhook produce exactly one ledger effect. **Two workers racing the reconciliation sweep produce one capture, not two.** A dispute reversal leaves the original entries intact. A capture failure leaves `COMPLETED (unpaid)` and the sweep resolves it. Razorpay sandbox e2e. (The §9.2.4 paisa-reconciliation acceptance criterion is B2-local.)
@@ -1167,6 +1925,8 @@ Spec targets: §14 (whole), §3.3, §3.5 (chargeable branches), §9.1.9, §9.1.1
 **Goal:** SOS works on a degraded network, ops can actually see and resolve what is happening, and the remaining §9.1/§9.2 dead ends stop being no-ops.
 
 Spec targets: §13, §5.6, §9.1.8, §6.6, §9.4.2, §9.4.4–§9.4.9, §20.4.
+
+> **§12.1's Web channel lands here** (recorded by Phase 13, which found it unassigned). The FLEET half is already delivered — the console's `/alerts` page has served `GET /v1/fleet/alerts` since Phase 6, and a parallel toast channel would be a second source of truth for the same fact. The ADMIN half — ops toasts and badge counts — belongs with the `admin:ops` room and the SOS feed in this phase. A genuine web push channel (service worker + VAPID) is a fifth vendor integration serving zero §12.2 rows and is a non-goal.
 **Slices:** B1 (SOS control + support + banners) · B2 (chat screen, if chat lands) · B3 (the entire admin live-ops surface).
 
 - `sos_alerts` table; SMS + WhatsApp fan-out to `emergency_contacts` (captured in Phase 12); `sos:alert` to `admin:ops`. (`POST /v1/sos` and the client-side SMS fallback are B1; the acknowledge → contact → resolve timeline UI is B3.)
@@ -1200,7 +1960,7 @@ Spec targets: §19.7, §19.8, §10.12, §21.
 
 ## B1 — TowGo (customer)
 
-*Slice index:* **P12** auth stack + `/me` profile group + expo-location · **P13** notification centre + Apple sign-in · **P14** estimate + service catalog + fare sheet · **P15** booking flow + Places · **P16** nearby drivers + home map · **P17** real search UI · **P18** share trip + TrackingScreen · **P19** wallet + payment UI · **P20** SOS + support + banners · **P21** submission checklist.
+*Slice index:* **P12** auth stack + `/me` profile group + expo-location · **P13** notification centre + Apple sign-in · **P14** estimate + service catalog + fare sheet · **P15** booking flow + Places · **P16** nearby drivers + home map · **P17** real search UI (done) · **P18** share trip + TrackingScreen · **P19** wallet + payment UI · **P20** SOS + support + banners · **P21** submission checklist.
 
 ### ✅ [P12] Mobile foundations — TowGo slice — **COMPLETE (10 Aug 2026)**
 
@@ -1213,8 +1973,12 @@ the canonical block's §20.4 line) and account-screen work the sketch under-spec
 was deliberately left `notReady` — no backend for saved payment instruments exists before Phase 19, and
 a fake "add card" flow with nowhere real to send it is worse than an honest stub. `Vehicle.type`'s
 customer-vehicle-category taxonomy isn't named anywhere in the spec docs — shipped as a 7-value
-judgment call (`ToBeDoneEhsan.md`), not a migration (the column is bare `text`). Google sign-in shipped
-code-complete, flagged off (client IDs don't exist server-side yet).
+judgment call (`ToBeDoneEhsan.md`), not a migration (the column is bare `text`). **Google sign-in did
+not ship** — only the seam did: the `googleSignInEnabled` flag (default off) and the "Continue with
+Google" button it gates, whose `onPress` is empty. The backend half (`POST /v1/auth/social`) is real
+from Phase 10, but the client OAuth flow was never built — no `expo-auth-session`, no
+`AuthDataSource` social method — and stays deferred until the OAuth client IDs exist
+(`SETUP-CHECKLIST.md` item 8).
 
 **Verification (surface-local):** `apps/towgo/maestro/customer-login.yaml` — authored and reviewed
 against the mock-mode login → consent → Home path; not executed (no device/emulator in this
@@ -1228,37 +1992,98 @@ new tests, full suite 502/502).
 - In-app notification centre + unread/mark-read — the bell in `AppHeader` is a no-op today. The notification-preferences screen wires to the server-side model (B0 · P13).
 - **Enable Sign in with Apple** (dark since Phase 10) if Apple Developer enrolment has completed, and verify it end-to-end on a device. (TowGo is the surface that exposes social sign-in, per Phase 12.)
 
-### [P14] Pricing & service catalog — TowGo slice
+### ✅ [P14] Pricing & service catalog — TowGo slice — **COMPLETE (16 Aug 2026)**
 
 *(canonical block: B0 · P14)*
 
-- `POST /v1/pricing/estimate` — full line-item breakdown + band + ETA in ≤ 2 s (§7.6). Customers see fares, never commission. (The engine it fronts, and the ≤ 2 s protection via `ExternalCallPolicy`, are B0 · P14.)
-- `GET /v1/services` — replaces TowGo's static `services.data.ts` and `towTypes.data.ts`, whose own comment says its hardcoded fares "become the estimate API later". (The enum-extension decision is B0 · P14.)
-- Mobile: the fare-breakdown sheet behind BookTow's currently-inert "Total Estimate ⓘ" icon, skeleton "computing fare" rows, and the surge badge (§9.1.5). Emit `service_selected` and `estimate_viewed`.
+**Delivered.** `POST /v1/pricing/estimate` and `GET /v1/services` are live and TowGo consumes both
+through the standard DataSource seam (`pricingRestSource.ts`, `servicesRestSource.ts`, with mock
+sources retained for mocks-on). The static `services.data.ts` / `towTypes.data.ts` fares are gone —
+including the two services TowGo was advertising that the platform cannot price (`lockout`,
+`winch_out`, neither in an Appendix B row), and the four it defines but never offered.
+`FareBreakdownSheet.tsx` is the itemised sheet behind the "Total Estimate ⓘ" icon that was inert since
+Phase 2; `FareBreakdownSkeleton.tsx` is the "computing fare" state; the surge badge renders off the
+estimate's own surge fields, reachable because the seed gives Chennai `surge_band: high`.
+`service_selected` and `estimate_viewed` are wired in `lib/analytics/events.ts` —
+`estimate_viewed` fires when a fare **lands**, not on mount, so an abandoned skeleton cannot inflate
+the §2.5 funnel.
 
-### [P15] Booking lifecycle — TowGo slice
+**Not proven on a device.** No EAS or dev-client build exists for TowGo, so every screen in this slice
+has run only in Metro. And with no Google Maps key the distance behind every quoted fare is a
+straight line scaled by `charge_config.haversine_road_factor` (1.3×) — a designed §19.2 fallback, but
+one that under-states a real tow.
+
+### ✅ [P15] Booking lifecycle — TowGo slice — **COMPLETE (17 Aug 2026), minus Places**
 
 *(canonical block: B0 · P15 — the §3.4 creation transaction lives there; TowGo's `confirmBooking` is its caller)*
 
-- `GET /v1/bookings` (reuse `encodeCursor`/`decodeCursor` from `jobs.cursor.ts`) and `GET /v1/bookings/:id` — the latter is the reconnect authority for every realtime surface built later. `GET /v1/bookings/:id/otp`: never before assignment, one-time, 30-minute expiry.
-- `POST /v1/bookings/:id/cancel` — **free branch only** here (always free during `SEARCHING`, plus the 0–2 min window). The chargeable branches need the ledger and land in Phase 19. Cancelling aborts dispatch and revokes any pending offer.
-- Places proxies behind a `GeocodingPort` (through the Phase 14 `ExternalCallPolicy`, B0): `GET /v1/places/autocomplete`, `/places/details`, reverse geocode. Absent from the §16.2 table — added here, because §9.1.5 mandates Places autocomplete and a draggable pin.
-- **TowGo:** `bookingStore` gains pickup/drop `LatLng` (today plain strings with no coordinates — it can never seed a real booking), `serviceId`, saved-vehicle id, scheduled timestamp, and the server-returned `bookingId` + fare lock. BookLocation gets real autocomplete, a map-pin picker, a working schedule pill (its `onPress` is an inline no-op today, so "later" is unreachable), a note editor, and the "booking for someone else" contact payload. BookTow's `confirmBooking` stops being a bare `navigation.navigate('Searching')` and becomes the real POST. The bookings list gains pagination and the **active-trip card** — today an in-flight trip is unrecoverable once you leave Tracking.
-- **§22.1:** emit `booking_confirmed`.
+**Delivered.** `GET /v1/bookings` (cursor-paginated) + `GET /v1/bookings/:id` +
+`GET /v1/bookings/:id/otp` + `POST /v1/bookings/:id/cancel` (free branch; the chargeable tiers are
+computed, reported and **refused** — collecting one needs Phase 19's ledger). `confirmBooking` is the
+real POST behind `navigation.replace`, not `navigate`, so "back" cannot offer a second booking §3.8
+would refuse. `bookingStore` carries pickup/drop `LatLng`, `serviceId`, scheduled timestamp, note
+and the "booking for someone else" contact; the schedule pill, the note row and the contact pill were
+all no-ops and are all real. `useSearchSimulation` — the `setTimeout` ladder that invented a driver
+after 6.5 s — is **deleted**; the screen shows the real §5.1 status on §19.2's 10 s REST fallback.
+`ActiveTripCard.tsx` is new: before it, leaving Tracking lost the trip entirely. `booking_confirmed`
+is emitted.
 
-**Verification (surface-local):** Maestro: home → location → estimate → confirm → a booking exists in `SEARCHING` with an OTP. Cursor stability under concurrent insert.
+**⚠️ Carved out of this phase — Places did not ship.** `GET /v1/places/autocomplete`,
+`/places/details` and reverse geocode behind a `GeocodingPort` were scoped here and **do not exist**;
+there is no places or geocoding module in the backend. On the TowGo side that leaves
+`BookLocationScreen`'s address entry on the seeded `recentLocations.data.ts` list (its three entries
+are the only source of a real drop coordinate, and the airport entry sits deliberately outside the
+Bengaluru polygon to exercise the 422), and **"Select on map" is still a no-op** — `notReady`. The
+draggable pin §9.1.5 mandates needs a rendered map, which is exactly what Phase 16 installs behind the
+`MapPreview` seam, so **both are re-homed to Phase 16 · B1** rather than back-filled here. Both also
+need checklist item 7 (Google Maps / Places API), which does not exist yet.
 
-### [P16] Nearby drivers & home map — TowGo slice
+**The schedule picker is presets, not a calendar** — In 1 hour · In 3 hours · Tonight 8 PM · Tomorrow
+9 AM. A real picker means `@react-native-community/datetimepicker`, a native module, and no build has
+ever been produced for this app; adding one blind is invariant 66's failure exactly.
+
+**Verification (surface-local):** Maestro `customer-booking.yaml` is authored and reviewed and has
+**never executed** — there is no device or emulator in this environment. Cursor stability under
+concurrent insert is covered by `bookings-read.e2e.spec.ts`. TowGo's Metro bundle exports clean.
+
+### ✅ [P16] Nearby drivers & home map — TowGo slice — **COMPLETE (19 Aug 2026)**
 
 *(canonical block: B0 · P16)*
 
+**Shipped:** the Places proxies behind a `GeocodingPort` with a local-gazetteer fallback;
+`BookLocationScreen`'s real debounced autocomplete replacing `notReady` and the seven-preset list
+(demoted to a recents list, not deleted); a new `MapPickerScreen` — fixed centre pin, the map moves
+under it, reverse-geocode on settle — wired to the "Select on map" button that had been dead since
+Phase 12; `GET /v1/drivers/nearby` with §11.9's forbidden fields DELETED from the contract and from
+TowGo's own type; `homeDataSource` finally given its REST half (the last data source in the app still
+hard-wired to a mock); and `useNearbyDrivers` — written in Phase 12 and never once called — wired into
+`PickupMapCard` with anonymous coarsened markers and an honest "N tow trucks nearby" line.
+**Not verified:** no device, no Maps key, so on Android the picker is disabled rather than misleading
+and the home map keeps the themed placeholder.
+
+- **Inherited from Phase 15 — Places and the map pin.** `GET /v1/places/autocomplete`,
+  `/places/details` and reverse geocode behind a `GeocodingPort` (through Phase 14's
+  `ExternalCallPolicy`), absent from the §16.2 table and added because §9.1.5 mandates them; then
+  `BookLocationScreen`'s real autocomplete and the draggable pin replacing `notReady` and the three
+  seeded `recentLocations` entries. Landing here rather than in 15 is deliberate: the pin needs the
+  rendered map this phase installs, and both halves need checklist item 7's Places key. **Until they
+  ship, a customer can only book to a preset location** — the single largest functional gap in the
+  TowGo flow.
 - `GET /v1/drivers/nearby` (§11.9) — count and ~100 m-coarsened positions **only**, viewport-scoped. TowGo's `NearbyDriver` type currently exposes `name`, `vehiclePlate` and `rating`; §11.9 forbids identity pre-assignment, so those fields are deleted from the contract. `useNearbyDrivers` already exists as a TanStack query but `HomeScreen` never calls it — wire it into `HomeScreen` and render real markers over B0 · P16's `MapPreview.maps`.
 
 **Verification (surface-local):** a driver whose ping is aged past 15 s disappears from `/drivers/nearby`; `/drivers/nearby` responses contain no name, plate or rating. **TowGo's home screen renders a real map with real coarsened markers.**
 
-### [P17] Dispatch — TowGo slice
+### ✅ [P17] Dispatch — TowGo slice — **COMPLETE (20 Aug 2026)**
 
 *(canonical block: B0 · P17)*
+
+**Shipped:** `useSearchSimulation.ts` deleted and replaced by `useSearchProgress`, which merges a
+`/customer` socket with the REST poll and prefers whichever fact is newer — so a customer on a dead
+socket still sees wave transitions, one poll behind rather than not at all; `SearchingScreen`'s
+`driversContacted` (hard-coded `0`) and its unreachable `widening` phase are both real, the widening
+subtitle naming the actual radius and the actual cumulative count; the retry button, previously
+`notReady`, posts `POST /v1/bookings/:id/retry-search`. `RadarPulse` was fed rather than rebuilt.
+**Not verified:** no device.
 
 - **TowGo:** `features/booking/hooks/useSearchSimulation.ts` is **deleted** — it is a pure timer producing fixed phase transitions, and "wave transitions reflect the actual engine state (no fake progress)" is a literal AC. Replaced by the socket plus `GET /bookings/:id` resync. Cancel wires to the real endpoint.
 
@@ -1300,7 +2125,7 @@ new tests, full suite 502/502).
 
 ## B2 — TowPartner (driver)
 
-*Slice index:* **P11** KYC submission API + events · **P12** auth + KYC wizard + capabilities + online-toggle fix + mutation queue · **P13** notification centre + the high-priority offer channel · **P16** online/offline + location ingress + on-device location · **P17** offer takeover + thin accept/reject routes · **P18** thin job routes + ActiveJob screen · **P19** earnings + payouts · **P20** chat screen (thin) · **P21** submission checklist.
+*Slice index:* **P11** KYC submission API + events · **P12** auth + KYC wizard + capabilities + online-toggle fix + mutation queue · **P13** notification centre + the high-priority offer channel · **P16** online/offline + location ingress + on-device location · **P17** offer takeover + thin accept/reject routes (done) · **P18** thin job routes + ActiveJob screen · **P19** earnings + payouts · **P20** chat screen (thin) · **P21** submission checklist.
 
 ### ✅ [P11] Driver KYC — TowPartner slice — **COMPLETE (10 Aug 2026)**
 
@@ -1317,9 +2142,11 @@ types are missing, 409s if not currently `incomplete`); `GET /v1/driver/kyc/stat
 migration 0008 as planned. `kyc_submit` is logged (structured log line) rather than emitted through a
 tracker — Phase 12 doesn't exist yet to install one; see `ToBeDoneEhsan.md`.
 
-**Verification (surface-local):** `driver-kyc.e2e.spec.ts`, 9 tests — the full presign→confirm→submit
+**Verification (surface-local):** `driver-kyc.e2e.spec.ts`, 11 tests — the full presign→confirm→submit
 happy path; 422 on an incomplete document set; 409 on submitting from the wrong status; 403 on a
-confirm whose key wasn't issued to the caller; resubmission over a document resets its review; and
+confirm whose key wasn't issued to the caller; the traversal key that *starts with* the caller's own
+prefix (the security regression recorded in invariant 54); a confirm under a doc type other than the
+one the key was issued for; resubmission over a rejected document resets its review; and
 the guard test the plan named: an un-approved driver gets `403 {reason:'kyc_not_approved'}` on
 `PUT /v1/driver/capabilities` — including the case where the JWT claims `approved` but the DB has
 since moved the driver to `suspended`, proving the guard's DB layer actually matters and isn't just
@@ -1344,9 +2171,23 @@ exists.
 - In-app notification centre + unread/mark-read — the bell in `DriverHeader` is a no-op today.
 - **Create the high-priority Android notification channel with its distinct sound now**, unused, so it exists and is battle-tested before Phase 17's `job:offer` depends on it — this is the delivery mechanism for an offer when the driver's app is backgrounded, and a WebSocket-only offer path fails at exactly that moment. A normal-priority push will not reliably wake a Doze-mode device inside a 20-second window. (The server-side high-priority message half rides the B0 spine.)
 
-### [P16] Presence & location — TowPartner slice
+### ✅ [P16] Presence & location — TowPartner slice — **COMPLETE (19 Aug 2026)**
 
 *(canonical block: B0 · P16 — the candidate store, the pipeline internals and the liveness rule live there)*
+
+**Shipped:** `POST /v1/driver/{online,offline,location}` behind `KycApprovedGuard` — the guard sits on
+the whole controller, so a driver suspended mid-shift stops counting as supply on their next PING and
+not only on their next toggle; `expo-location` + `expo-task-manager` with the Android foreground
+service and the iOS `location` background mode; an MMKV ping buffer that flushes IN ORDER as one batch
+(deliberately NOT the durable mutation queue — see `pingBuffer.ts` for why N racing requests would have
+most of the backlog discarded as stale); the `/driver` socket for `config:update` and the fast ingress
+path; a **prominent-disclosure sheet shown before the OS prompt**, which is a Play policy requirement
+rather than a flourish; `NewJobScreen`'s `useState` that requested no OS permission at all replaced by
+real permission state; and `driver_first_online` / `driver_online` (§22.1).
+`driverStatusStore` stopped being the source of truth and became a mirror of the server — its own
+docblock's "a real build persists it and syncs to the dispatch backend" is finally true, and `toggle()`
+is gone because a local flip is no longer a meaningful operation.
+**Not verified:** none of it has run. No dev-client build exists for this app.
 
 - `POST /v1/driver/{online,offline}` behind `KycApprovedGuard` — **§3.1 layer 3** — resolving `current_zone_id` and doing the GEO add/evict against B0 · P16's candidate store.
 - `POST /v1/driver/location` and the socket `location:update` ingress on the Phase 5 gateway — thin routes over the B0 · P16 pipeline (`seq` discard, accuracy halo, GEO fan-out, sampled persistence and the PostGIS flush all live there).
@@ -1354,9 +2195,31 @@ exists.
 
 **Verification (surface-local):** an un-approved driver gets 403 on `/online`. On device: pings continue with the app backgrounded and the screen off; battery drain measured against the §11.10 6–8 %/h target.
 
-### [P17] Dispatch — TowPartner slice
+### ✅ [P17] Dispatch — TowPartner slice — **COMPLETE (20 Aug 2026)**
 
 *(canonical block: B0 · P17 — the offer lifecycle, the accept transaction and its double-assignment defense live there)*
+
+**Shipped:** `OfferTakeoverScreen` as a `fullScreenModal` with `gestureEnabled: false` — the only
+screen in the app that disables the back gesture, because a swipe here would decline a job worth real
+money; a `CountdownRing` driven by the absolute `expiresAt` and recomputed every 250 ms, amber until
+five seconds and red after; haptics on arrival and at five seconds, and **no repeating buzz** — a
+phone that vibrates continuously gets silenced, which costs the driver every *future* offer;
+gross → commission (band + %) → net with the net large; a pinned accept/decline pair above the fold,
+because the card's own buttons sit below a note and a route that a driver has twenty seconds to
+scroll past. `AssignedJobScreen` replaces the `PlaceholderScreen` Accept used to land on — customer
++ number (earned by assignment, absent from the offer), pickup → drop timeline, the net triple, the
+"waiting for pickup OTP" statement, and call / navigate hand-offs — with **no arrive/start/complete**,
+which Phase 18 adds to this same screen. `job:offer` / `job:revoked` land in the query cache via
+module functions rather than a component's callbacks; the takeover is triggered by the cache, so the
+socket, the §19.2 poll and a push tap all produce one takeover and never two.
+
+**Deliberate:** **no new audio dependency.** A distinct alert tone needs a licensed asset and — because
+Android ignores every change to a notification channel once created — a `job-offer-v2` channel to
+carry it. Backgrounded offers already ride Phase 13's `job-offer-v1` at `importance: MAX` with
+`bypassDnd`, which is the half that actually wakes a phone in Doze. Recorded in `ToBeDoneEhsan.md`
+rather than faked with a placeholder sound.
+**Not verified:** no device — the takeover, the ring, the haptics and the offer push have never been
+seen.
 
 - **TowPartner:** the offer becomes a full-screen takeover with sound, haptic and a 20 s countdown ring (a bottom-tab screen cannot do this); the offer card gains gross → commission → net and the customer rating (§9.2.2 AC — it shows one unqualified fare number today, and a relative `expiresInSeconds` is replaced by an absolute server `expiresAt`); Accept stops landing on `PlaceholderScreen`.
 - `POST /v1/jobs/:id/{accept,reject}` — idempotent thin driver routes over the B0 · P17 offer engine.
@@ -1394,7 +2257,7 @@ exists.
 *(canonical block: B0 · P21 — OTA policy, shared store-readiness items and the launch gates live there)*
 
 - EAS Submit + app signing for TowPartner.
-- **Background-location prominent disclosure and the Play declaration form** (a review path that has held apps for weeks — start it during Phase 16, not here).
+- **Background-location prominent disclosure and the Play declaration form** (a review path that has held apps for weeks — start it during Phase 16, not here). *(Phase 16 shipped the in-app disclosure sheet — shown before the OS prompt, as policy requires — and the manifest declarations. **The declaration form itself has not been filed**, because it needs the Play Console account in SETUP-CHECKLIST item 3.)*
 - Review notes with a demo account that has already passed the KYC gate; verify in-app account deletion (`DELETE /me`, Phase 12) on the driver app too.
 - TowPartner passes the §19.7 mobile gates defined in B0 · P21.
 
@@ -1402,7 +2265,7 @@ exists.
 
 Per the locked guiding decision, Admin Ops is **routes inside `apps/towfleet-web` under `/admin/*`** with an `admin_session` realm-prefixed cookie — not a new Next app. B3 covers both the admin API and its web UI.
 
-*Slice index:* **P10** admin realm (delivered stub) · **P11** KYC approval API + `/admin/drivers` console (delivered) · **P14** pricing/commission config API · **P17** dispatch-config API · **P19** Finance approval queue · **P20** the live-ops surface (dashboard, dispatch inspector, search + suspend, bookings admin, config forms, zone editor, SOS timeline).
+*Slice index:* **P10** admin realm (delivered stub) · **P11** KYC approval API + `/admin/drivers` console (delivered) · **P14** pricing/commission config API · **P17** dispatch-config API (done) · **P19** Finance approval queue · **P20** the live-ops surface (dashboard, dispatch inspector, search + suspend, bookings admin, config forms, zone editor, SOS timeline).
 
 ### ✅ [P10] Admin realm — delivered (stub)
 
@@ -1434,28 +2297,43 @@ console button** — both apply to a driver who has already left the `pending` q
 so there's no natural entry point until Phase 20's driver-search screen exists; the API + RBAC +
 audit trail is complete and tested regardless.
 
-**Verification (surface-local):** `admin-drivers.e2e.spec.ts`, 12 tests — approve flips status and
+**Verification (surface-local):** `admin-drivers.e2e.spec.ts`, 15 tests — approve flips status and
 writes `admin_actions`; suspend revokes the family; RBAC negatives per sub-role including the new
-read/write split (`support` reads the queue, 403s on every decision route); `request_info` moves a
-driver to `incomplete` and out of the queue; per-document review sets `verifiedBy`/`verifiedAt` and
-404s on a `docId` belonging to a different driver; capabilities update audits and takes effect on the
-driver side. Playwright — hermetic (`e2e/admin-kyc.spec.ts`, 3 tests: realm separation, queue render)
+read/write split (`support` reads the queue, 403s on every decision route; `finance` can do neither);
+a rejection without a reason is refused; `request_info` moves a driver to `incomplete` and out of the
+queue; the queue lists only `pending` drivers with real signed-GET thumbnail URLs; per-document
+review sets `verifiedBy`/`verifiedAt`, requires a reason to reject, and 404s on a `docId` belonging
+to a different driver; capabilities update audits and takes effect on the driver side. Playwright — hermetic (`e2e/admin-kyc.spec.ts`, 3 tests: realm separation, queue render)
 **and mocks-off** (`e2e-live/admin-kyc.spec.ts`, 2 tests, real backend + real seeded data): admin
 login → queue → open drawer → render a document through a real signed GET (asserted via
 `naturalWidth > 0`, not just that an `<img>` tag exists) → approve → row leaves the queue — exactly
 the acceptance bar this phase set for itself.
 
-### [P14] Pricing & commission config — Admin Ops slice
+### ✅ [P14] Pricing & commission config — Admin Ops slice — **COMPLETE (16 Aug 2026)**
 
 *(canonical block: B0 · P14 — the guardrail, the config tables and the history table live there)*
 
-- **Admin config API (§16.5) — the guardrail needs a way to be exercised.** `GET/PUT /v1/admin/pricing` and `GET/PUT /v1/admin/commission`, RBAC-gated to `super_admin | finance`, writing `commission_config_history` and `admin_actions` on every change. Phase 14 builds the guardrail and the history table (B0); without these endpoints nothing can ever trip either. The thin `/admin/*` forms (§9.4.8/§9.4.9) land in Phase 20; `/admin/dispatch-config` lands in Phase 17 with its consumer.
+**Delivered.** `modules/admin-config` serves `GET/PUT /v1/admin/pricing`,
+`GET/PUT /v1/admin/commission` and `GET /v1/admin/commission/history`, RBAC-gated to
+`super_admin | finance`. Every write lands a `commission_config_history` row and an
+`admin_actions` row — **including the rejected ones**: an attempt to move commission outside 5–10 %
+is refused *and* recorded, because a refused attempt is the audit signal worth keeping.
+`admin-config.e2e.spec.ts` covers guardrail rejection plus the audit-row write.
 
-**Verification (surface-local):** guardrail rejection + audit-row write via `PUT /admin/commission`.
+**API only — there is no admin form yet.** `/admin/*` in `apps/towfleet-web` still holds exactly the
+Phase 11 KYC console; the §9.4.8/§9.4.9 pricing and commission-band screens remain Phase 20 · B3, so
+today these endpoints are exercised by tests and by hand, not through a UI.
 
-### [P17] Dispatch config — Admin Ops slice
+### ✅ [P17] Dispatch config — Admin Ops slice — **COMPLETE (20 Aug 2026)**
 
 *(canonical block: B0 · P17)*
+
+**Shipped:** `GET/PUT /v1/admin/dispatch-config` on the existing `AdminConfigController`,
+`@Roles('super_admin','operations')` — **not finance**, which owns pricing and commission and has no
+business retuning a radius ladder — `money` throttle bucket, audited through `AdminAuditService`,
+validated against the same `dispatchConfigOverrideSchema` Phase 14 seeds. Each zone row carries the
+raw editable `override` (nullable) **and** a display-only `resolved`, so an admin who saves one field
+does not silently freeze today's code defaults into that zone's data. The form over it is Phase 20.
 
 - **`GET/PUT /v1/admin/dispatch-config` (§16.5)** — owned here because this phase is the consumer and already reads `service_zones.dispatch_config`: radius ladder, offer countdown, offers per wave, max search time, scoring weights, stale-ping threshold, all editable with **no deploy** per §6.7, validated against the same typed schema Phase 14 seeds, and audited to `admin_actions`. The thin admin form is Phase 20 · B3.
 
@@ -1533,7 +2411,12 @@ Track B removes three items from the original Track A non-goals list: the **disp
 cd apps/backend && docker compose up -d --wait          # dev DB + Redis
 pnpm db:migrate && pnpm db:seed                          # schema + demo data
 pnpm backend                                             # API on :4000 (dev OTP prints here)
-pnpm sim:locations                                       # optional: live truck movement
+pnpm sim:locations                                       # optional: live TRUCK movement (Phase 5 console map)
+pnpm sim:drivers                                          # optional: live DRIVER supply (§6.1 candidate store)
+#   The two write different keys and both are written by every real ping:
+#   sim:locations → trucks:online:{fleetId} · sim:drivers → drivers:online:{zoneId}
+#   sim:drivers --stale-pct=25 leaves a quarter of drivers silent, which is the
+#   fixture for the §6.1 liveness filter.
 
 # Console
 pnpm fleet                                               # mock mode (default)
@@ -1542,8 +2425,8 @@ pnpm fleet                                               # mock mode (default)
 
 # Tests
 cd apps/backend && docker compose --profile test up -d --wait
-pnpm test                                                # 449 tests (unit + supertest e2e)
-cd ../towfleet-web && pnpm test:e2e                      # Playwright 26, mocks-on (run `pnpm build` first)
+pnpm test                                                # 901 tests / 89 files (unit + supertest e2e)
+cd ../towfleet-web && pnpm test:e2e                      # Playwright 29, mocks-on (run `pnpm build` first)
 
 # Load & scale (Phase 8) — see docs/load-testing.md and docs/rehearsal.md
 cd apps/backend

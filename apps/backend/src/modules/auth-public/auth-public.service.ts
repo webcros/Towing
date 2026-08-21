@@ -1,4 +1,3 @@
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CustomerSession,
@@ -19,6 +18,7 @@ import { OTP_PORT, type OtpPort, type OtpPurpose } from '../auth/otp.port';
 import { TokenService, type SessionContext } from '../auth/token.service';
 import { SocialIdentityRegistry } from './social/social-identity.registry';
 import { REALM_FOR_ROLE, SubjectRepo, type PublicSubject } from './subject.repo';
+import { digest, digestsMatch, generateOtp } from '../auth/otp.util';
 
 /** Every way step 2 can fail says the same thing — the challenge id is opaque. */
 const CHALLENGE_REJECTED = 'This login challenge is no longer valid';
@@ -285,19 +285,4 @@ function roleForRealm(realm: string | undefined): PublicAuthRole | null {
   if (realm === 'customer') return 'customer';
   if (realm === 'driver') return 'driver';
   return null;
-}
-
-function generateOtp(): string {
-  return randomInt(0, 1_000_000).toString().padStart(6, '0');
-}
-
-function digest(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function digestsMatch(a: string, b: string): boolean {
-  const left = Buffer.from(a, 'utf8');
-  const right = Buffer.from(b, 'utf8');
-
-  return left.length === right.length && timingSafeEqual(left, right);
 }

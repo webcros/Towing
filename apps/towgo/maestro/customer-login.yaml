@@ -13,28 +13,46 @@
 # against the screens as written; not run against a device/emulator — this
 # environment has neither (see the phase's plan doc, "Explicitly out of
 # scope").
-appId: in.webcros.moveyo
+appId: in.mitow.customer
 ---
 - launchApp:
     clearState: true
 
-# Splash is a brief hydration flicker (MMKV read); PhoneEntry is the first
-# screen that actually holds still while unauthenticated.
-- assertVisible: "Enter your mobile number"
+# Splash is a brief hydration flicker (MMKV read); the Login screen is the
+# first screen that actually holds still while unauthenticated. Since the
+# Figma 38:2 redesign, phone entry and OTP entry are two animated STEPS of one
+# LoginScreen rather than two stack screens — "Welcome" is its header.
+- assertVisible: "Welcome"
 
-- tapOn: "98765 43210"
+- tapOn: "Enter mobile number"
 - inputText: "9876543210"
 - tapOn: "Send OTP"
 
+# The OTP step slides in in-place (shared-axis, ~320ms). "Enter the code" is
+# its field label; "One-time code" is the accessibilityLabel of the single
+# hidden input behind the six digit boxes (see OtpInput.tsx — one input, not
+# six, so paste and SMS autofill keep working).
 - assertVisible: "Enter the code"
-- tapOn: "••••••"
+- tapOn: "One-time code"
 - inputText: "123456"
-# OtpScreen auto-submits at 6 digits — no explicit "Verify" tap needed.
+# LoginScreen auto-submits at 6 digits — no explicit "Verify" tap needed.
 
 # Fresh install → the DPDP first-run consent overlay is shown before Home.
 - assertVisible: "Before you continue"
 - tapOn: "I Agree"
 
+# Phase 13: the push-priming sheet mounts once, after consent. Conditional
+# because it is skipped entirely where no token could be minted (Expo Go, a
+# simulator) — so this flow passes on a dev-client build and on a device.
+# Declining here is deliberate: `allow-notifications.yaml` is the flow that
+# accepts, and the OS prompt can only be answered once per install.
+- runFlow:
+    when:
+      visible: "Know when your driver arrives"
+    commands:
+      - tapOn: "Not now"
+
 # Home renders — `HomeHero`'s heading is the most stable marker of the
 # authenticated tab bar having mounted.
+
 - assertVisible: "Fast Towing,"

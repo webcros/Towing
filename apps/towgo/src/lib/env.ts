@@ -21,13 +21,49 @@ export const env = {
   mockBookingsState: (process.env.EXPO_PUBLIC_MOCK_BOOKINGS_STATE ?? '') as MockState,
   /** Dev-only: force the `/me` (profile/vehicles/addresses/emergency-contacts) mocks into empty/error. */
   mockAccountState: (process.env.EXPO_PUBLIC_MOCK_ACCOUNT_STATE ?? '') as MockState,
-  /** Dev-only: force the search outcome ('' | 'no_drivers'). */
-  mockSearchState: (process.env.EXPO_PUBLIC_MOCK_SEARCH_STATE ?? '') as '' | 'no_drivers',
+  /** Dev-only: force the notification centre's mocks into empty/error. */
+  mockNotificationsState: (process.env.EXPO_PUBLIC_MOCK_NOTIFICATIONS_STATE ?? '') as MockState,
+  /** Dev-only: force the service catalogue mock into empty/error. */
+  mockServicesState: (process.env.EXPO_PUBLIC_MOCK_SERVICES_STATE ?? '') as MockState,
+  /**
+   * Dev-only: force the fare estimate into error, or into a SURGING zone —
+   * §9.1.5's surge badge is otherwise unreachable in mock mode, since no seeded
+   * mock zone surges.
+   */
+  mockPricingState: (process.env.EXPO_PUBLIC_MOCK_PRICING_STATE ?? '') as MockState | 'surge',
+  /** Dev-only: force address search into empty/error (Phase 16). */
+  mockPlacesState: (process.env.EXPO_PUBLIC_MOCK_PLACES_STATE ?? '') as MockState,
+  /** Dev-only: force the nearby-driver supply read into empty/error. */
+  mockNearbyState: (process.env.EXPO_PUBLIC_MOCK_NEARBY_STATE ?? '') as MockState,
 
   /**
-   * Google Sign-In is code-complete but flagged off — `GOOGLE_OAUTH_CLIENT_IDS`
-   * is still empty server-side (`ToBeDoneEhsan.md` §0ii), so a button that
-   * always 403s would be worse than a hidden one.
+   * Google Maps SDK key for ANDROID (Phase 16).
+   *
+   * Android has no keyless map provider, so without this `react-native-maps`
+   * renders a blank grey grid with a Google watermark — worse than the themed
+   * placeholder, because it looks like the app is broken rather than like a map
+   * is pending. Empty (the default) keeps the placeholder on Android; iOS is
+   * unaffected either way, since it renders through Apple Maps with no key.
+   *
+   * Not the same value as the SERVER's `GOOGLE_MAPS_API_KEY`: a key shipped in
+   * an app binary is extractable, so this one must be restricted to the Android
+   * package name + signing certificate and to the Maps SDK alone. Places,
+   * Geocoding and Distance Matrix stay server-side behind our own proxies.
+   * SETUP-CHECKLIST item 7.
+   */
+  mapsAndroidKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ?? '',
+
+
+  /**
+   * The Google Sign-In **seam**, not a working flow. This flag gates the
+   * "Continue with Google" button in `LoginScreen`, whose `onPress` is
+   * still an empty function: the client OAuth flow is NOT implemented (no
+   * `expo-auth-session` dependency, no `AuthDataSource` social method). The
+   * backend half is real — `POST /v1/auth/social` shipped in Phase 10 — but
+   * `GOOGLE_OAUTH_CLIENT_IDS` is empty server-side, so the route 403s anyway
+   * (`ToBeDoneEhsan.md` §0ii, `SETUP-CHECKLIST.md` item 8). Default `false`:
+   * a hidden button beats a button that does nothing. Building the client
+   * flow is deferred until the OAuth client IDs exist.
    */
   googleSignInEnabled: (process.env.EXPO_PUBLIC_GOOGLE_SIGN_IN_ENABLED ?? 'false') === 'true',
 

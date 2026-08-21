@@ -1,9 +1,18 @@
 import type {
   BookingStatusEvent,
+  CustomerBookingStatusEvent,
+  CustomerReadyEvent,
+  DriverConfigUpdateEvent,
+  DriverLocationAccepted,
+  DriverLocationPing,
+  DriverReadyEvent,
   FleetId,
+  JobOfferEvent,
+  JobRevokedEvent,
   LocationUpdateEvent,
   OpsMetricsEvent,
   RealtimeReadyEvent,
+  SearchProgressEvent,
 } from '@towing/api-contracts';
 import type { Namespace, Server, Socket } from 'socket.io';
 
@@ -53,4 +62,103 @@ export type RealtimeServer = Server<
   ServerToClientEvents,
   Record<string, never>,
   FleetSocketData
+>;
+
+// ---------------------------------------------------------------------------
+// The `/driver` namespace (Phase 16)
+// ---------------------------------------------------------------------------
+
+/**
+ * THE FIRST INBOUND SOCKET MESSAGE IN THIS CODEBASE.
+ *
+ * `/fleet`'s equivalent above is empty and must stay empty: its guarantee is
+ * that nothing client-supplied can reach a room name. This namespace cannot
+ * offer that guarantee — it exists to receive a stream — so it is a SEPARATE
+ * type on a SEPARATE namespace rather than a widening of the fleet one. The
+ * property that replaces it here: the handler reads its subject from
+ * `socket.data`, which came from a redeemed server-side ticket, and never from
+ * the payload. `DriverLocationPing` deliberately carries no driver id at all,
+ * so there is nothing in the message for a handler to be tempted by.
+ */
+export interface DriverClientToServerEvents {
+  'location:update': (
+    payload: DriverLocationPing,
+    ack?: (result: DriverLocationAccepted) => void,
+  ) => void;
+}
+
+export interface DriverServerToClientEvents {
+  'realtime:ready': (payload: DriverReadyEvent) => void;
+  'config:update': (payload: DriverConfigUpdateEvent) => void;
+  /** §6.3's offer — the room this lands in is why Phase 16 built the namespace. */
+  'job:offer': (payload: JobOfferEvent) => void;
+  'job:revoked': (payload: JobRevokedEvent) => void;
+}
+
+/** Attached at handshake from the redeemed ticket — the only source of a socket's driver. */
+export interface DriverSocketData {
+  driverId: string;
+}
+
+export type DriverSocket = Socket<
+  DriverClientToServerEvents,
+  DriverServerToClientEvents,
+  Record<string, never>,
+  DriverSocketData
+>;
+
+export type DriverNamespaceType = Namespace<
+  DriverClientToServerEvents,
+  DriverServerToClientEvents,
+  Record<string, never>,
+  DriverSocketData
+>;
+
+// ---------------------------------------------------------------------------
+// The `/customer` namespace (Phase 17)
+// ---------------------------------------------------------------------------
+
+/**
+ * EMPTY, like `/fleet` and unlike `/driver`.
+ *
+ * The customer has nothing to tell the server over a socket: cancelling is a
+ * REST call that needs an audit trail and an idempotency story, and everything
+ * else they do is a REST mutation too. Keeping this empty is what makes adding
+ * an inbound handler here a deliberate decision rather than an accident.
+ */
+export interface CustomerClientToServerEvents {
+  // intentionally empty — see above
+}
+
+export interface CustomerServerToClientEvents {
+  'realtime:ready': (payload: CustomerReadyEvent) => void;
+  'search:progress': (payload: SearchProgressEvent) => void;
+  'booking:status': (payload: CustomerBookingStatusEvent) => void;
+}
+
+/**
+ * Attached at handshake from the redeemed ticket.
+ *
+ * `bookingId` is on the SOCKET, not on a message: `WsTicketService` mints it
+ * only after the ticket route has proved this customer owns that booking, so
+ * ownership is checked once on a route that already does it, and nothing the
+ * socket says afterwards can reach a room name.
+ */
+export interface CustomerSocketData {
+  userId: string;
+  bookingId: string;
+}
+
+export type CustomerSocket = Socket<
+  CustomerClientToServerEvents,
+  CustomerServerToClientEvents,
+  Record<string, never>,
+  CustomerSocketData
+>;
+
+export type CustomerNamespaceType = Namespace<
+  CustomerClientToServerEvents,
+  CustomerServerToClientEvents,
+  Record<string, never>,
+  CustomerSocketData
 >;

@@ -135,7 +135,7 @@ describe('fleet gateway handshake', () => {
     const fleetId = randomUUID();
     // Mint through the service, then expire the key out from under it rather
     // than sleeping out a 60s TTL.
-    const ticket = await app.get(WsTicketService).issue({ userId: USER, fleetId: fleetId as never });
+    const ticket = await app.get(WsTicketService).issue({ realm: 'fleet', subjectId: USER, fleetId: fleetId as never });
     await testRedis().del(`ws:ticket:${ticket}`);
 
     await expect(connectWith({ ticket })).rejects.toThrow(/unauthorized/i);

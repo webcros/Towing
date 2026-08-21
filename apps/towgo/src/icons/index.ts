@@ -14,6 +14,9 @@ export {
   ChevronDown,
   ChevronRight,
   Info,
+  // §9.1.5's surge badge (Phase 14). The curated set had no
+  // demand/intensity glyph — this is the family's own trend icon.
+  TrendingUp,
   Check,
   StickyNote,
   Plus,
@@ -27,6 +30,7 @@ export {
   MessageCircle,
   Star,
   Truck,
+  Bike,
   Calendar,
   Clock,
   CalendarClock,

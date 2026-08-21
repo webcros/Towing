@@ -1,8 +1,8 @@
 # 06 — Operations Runbook (Day-1 Bring-Up & Day-2 Operations)
 
 **Audience:** the AWS engineer deploying and operating the Towing platform (TowFleet web console + shared NestJS backend).
-**Scope today:** `apps/backend` (NestJS 11, port 4000, prefix `/v1`) and `apps/towfleet-web` (Next.js 15). The Expo mobile apps (`towgo`, `towpartner`) run on mocks and do **not** talk to the backend yet — they are out of deployment scope.
-**Implementation status:** Phases 1–6 of `docs/TowFleet-Implementation-Plan.md` are complete (including the Socket.io realtime gateway and BullMQ workers, both running inside the API task). Phase 7 (money), 8 (hardening), 9 (AWS deploy) are pending. Everything below describes the system **as it exists today**, with Phase-9 translation notes.
+**Scope today:** `apps/backend` (NestJS 11, port 4000, prefix `/v1`) and `apps/towfleet-web` (Next.js 15, which also serves the `/admin/*` KYC console). The Expo mobile apps (`towgo`, `towpartner`) are out of *deployment* scope — nothing to run for them — but since Phase 12 they **are live clients** of this backend (phone-OTP auth, the customer `/v1/me/*` group, driver KYC pre-signed uploads), so they show up in your traffic and your logs.
+**Implementation status:** Track A phases 1–8 of `docs/TowFleet-Implementation-Plan-V2.md` are complete — the Socket.io realtime gateway, BullMQ workers, the money/ledger subsystem and the multi-instance hardening (Redis throttler storage, shared BFF refresh lock) all run inside the API task. Track B phases 10–12 are complete (four auth realms, driver KYC + admin console, both mobile apps off mocks); Phase 13 (notifications) is next. **Phase 9 is the AWS deploy and now runs in two stages: 9a staging — next, pinned to `desiredCount: 1` — then 9b production.** Everything below describes the system **as it exists today**, with Phase-9 translation notes.
 
 ---
 
@@ -257,7 +257,7 @@ Day-1 infrastructure alarms worth adding regardless of SLOs: ECS `RunningTaskCou
 
 ## 7. Operational gotchas
 
-**Engineering notes from `docs/TowFleet-Implementation-Plan.md` (hard-won, do not regress):**
+**Engineering notes from `docs/TowFleet-Implementation-Plan-V2.md` (hard-won, do not regress):**
 
 1. Backend build uses `tsconfig.build.json` with its buildinfo **inside `dist/`** — typecheck and build must never share incremental state or `dist` comes out half-empty.
 2. `@towing/api-contracts` serves TS source via the `import` condition and compiled CJS via `require` — run `turbo build` after editing contracts or the compiled backend sees stale code.
@@ -283,7 +283,7 @@ Day-1 infrastructure alarms worth adding regardless of SLOs: ECS `RunningTaskCou
 ## 8. FAQ
 
 **Where are the demo credentials?**
-Created by the seed (non-prod only): `lakshmi@recovery.in` or `ops@chennaihighwayrescue.in`, password `Password123!` (per `docs/TowFleet-Implementation-Plan.md`). They never exist in production because the seed refuses to run there.
+Created by the seed (non-prod only): `lakshmi@recovery.in` or `ops@chennaihighwayrescue.in`, password `Password123!` (per `docs/TowFleet-Implementation-Plan-V2.md`). They never exist in production because the seed refuses to run there.
 
 **Where does the login OTP go?**
 Login is two-step: email + password, then an OTP challenge.

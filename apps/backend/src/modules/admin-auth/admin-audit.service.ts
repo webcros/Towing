@@ -32,8 +32,14 @@ export interface AdminActionRecord {
 export class AdminAuditService {
   constructor(@Inject(DB) private readonly db: Database) {}
 
-  async record(entry: AdminActionRecord): Promise<void> {
-    await this.db.insert(adminActions).values({
+  /**
+   * @returns the inserted row id. Phase 13 uses it as the dedupe key for the
+   *   notification a decision emits: it is the one value that is genuinely
+   *   one-per-decision, unlike a per-call timestamp, which a double-tapped
+   *   admin button produces two distinct copies of.
+   */
+  async record(entry: AdminActionRecord): Promise<string> {
+    const [row] = await this.db.insert(adminActions).values({
       adminId: entry.adminId,
       action: entry.action,
       subjectType: entry.subjectType,
@@ -44,6 +50,8 @@ export class AdminAuditService {
       reason: entry.reason ?? null,
       ip: entry.ip ?? null,
       userAgent: entry.userAgent ?? null,
-    });
+    }).returning({ id: adminActions.id });
+
+    return row!.id;
   }
 }

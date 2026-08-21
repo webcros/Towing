@@ -2,21 +2,15 @@ import React from 'react';
 import { View } from 'react-native';
 import { useTheme } from '@towing/theme';
 import { Card, Text, Skeleton, type IconComponent } from '@towing/ui';
-import { Check, X, MapPin, CreditCard, Truck, Route, Calendar } from '@/icons';
+import { MapPin, CreditCard, Route, Calendar, Truck } from '@/icons';
 import { IconChip } from '@/components/IconChip';
-import { driverColors, type ChipTone } from '@/theme/driverColors';
+import { driverColors } from '@/theme/driverColors';
 import { formatINR } from '@/utils/format';
-import type { Job, JobStatus } from '../types';
+import { JOB_STATUS_META } from '../statusMeta';
+import type { Job, JobPayment } from '../types';
 
-/**
- * The leading chip alone carries the status (green check / red cross / blue
- * truck) — no extra status pill, so the card stays calm.
- */
-const STATUS_CHIP: Record<JobStatus, { icon: IconComponent; tone: ChipTone }> = {
-  completed: { icon: Check, tone: 'green' },
-  cancelled: { icon: X, tone: 'red' },
-  assigned: { icon: Truck, tone: 'blue' },
-};
+/** A Record, not a ternary — a new payment method becomes a compile error, not a silent "Online". */
+const PAYMENT_LABEL: Record<JobPayment, string> = { online: 'Online' };
 
 function MetaItem({
   icon: Icon,
@@ -41,7 +35,9 @@ function MetaItem({
 /** A job history card on the Jobs screen (status chip · route · fare · meta). */
 export function JobCard({ job, onPress }: { job: Job; onPress?: () => void }) {
   const theme = useTheme();
-  const chip = STATUS_CHIP[job.status];
+  // The leading chip alone carries the status — no extra status pill, so the
+  // card stays calm.
+  const chip = JOB_STATUS_META[job.status];
 
   return (
     <Card radius="card" padding={16} onPress={onPress} style={{ gap: 13 }}>
@@ -74,7 +70,7 @@ export function JobCard({ job, onPress }: { job: Job; onPress?: () => void }) {
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text color="secondary" style={{ fontSize: 15, lineHeight: 22 }}>
-              {job.payment === 'cash' ? 'Cash' : 'Online'}
+              {PAYMENT_LABEL[job.payment]}
             </Text>
             <CreditCard size={15} color={theme.colors.textTertiary} strokeWidth={2} />
           </View>

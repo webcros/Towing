@@ -18,10 +18,13 @@
     "db:seed:load": "tsx src/db/seed/index.ts --reset --scale=10",
     "earnings:rebuild": "tsx src/scripts/rebuild-earnings.ts",
     "sim:locations": "tsx src/scripts/simulate-locations.ts",
+    "sim:drivers": "tsx src/scripts/simulate-drivers.ts",
+    "bench:dispatch": "tsx src/scripts/bench-dispatch.ts",
     "smoke:realtime": "tsx src/scripts/realtime-load.ts",
     "load:tokens": "tsx src/scripts/mint-load-tokens.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1106.0",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.6",

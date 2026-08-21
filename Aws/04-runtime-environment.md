@@ -1,6 +1,6 @@
 # 04 — Runtime Environment: Processes, Configuration, Packaging
 
-Audience: the AWS engineer deploying the Towing platform (Phase 9 of `docs/TowFleet-Implementation-Plan.md`; Phases 1–4 are complete). This document inventories every process that must run, every environment variable each process reads, and the current state of packaging. Where something is genuinely undecided it is listed under [Decisions needed](#decisions-needed-from-the-aws-engineer) rather than guessed.
+Audience: the AWS engineer deploying the Towing platform (Phase 9 — now split into **9a staging**, which is next, and 9b production — of `docs/TowFleet-Implementation-Plan-V2.md`; Track A phases 1–8 and Track B phases 10–12 are complete). This document inventories every process that must run, every environment variable each process reads, and the current state of packaging. Where something is genuinely undecided it is listed under [Decisions needed](#decisions-needed-from-the-aws-engineer) rather than guessed.
 
 ---
 
@@ -51,7 +51,7 @@ flowchart LR
 | Nightly ledger reconciliation | Phase 7 — **landed** | `earnings.reconcile` at `LEDGER_RECONCILE_CRON` (01:00 IST): the three §14 money invariants, the projection audit (drifted cells are re-enqueued, so it self-heals), and a payout-alert reconcile. **Throws on drift**, which raises `deadLettered` on `GET /v1/health/queues` — reuse that alarm rather than adding one. Live status at `GET /v1/health/ledger` |
 | Payout reconciliation poll | Phase 7 — **landed** | `payouts.reconcile` at `PAYOUT_RECONCILE_CRON` (every 5 min), the §19.3 missed-webhook sweep. Single-owner via the same Redis schedule dedup. Bounded to 200 payouts per tick, so a backlog cannot become thousands of vendor calls |
 
-Mobile apps (`apps/towgo`, `apps/towpartner`) are Expo/React Native and currently run on mocks; they do **not** talk to the backend and need nothing deployed.
+Mobile apps (`apps/towgo`, `apps/towpartner`) are Expo/React Native: nothing to deploy for them, but since Phase 12 they **are** clients of the backend you deploy (phone-OTP auth, the customer `/v1/me/*` group, driver KYC uploads). They need a reachable HTTPS origin — that is one of the reasons Phase 9a (staging) exists — and CORS/`CORS_ORIGINS` planning should account for native clients, which send no `Origin` header on same-origin-less native fetches.
 
 ---
 
