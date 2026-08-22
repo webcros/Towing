@@ -40,3 +40,13 @@ yarn-error.*
 /Detailed-Overview.md
 /SETUP-CHECKLIST.md
 /ToBeDoneEhsan.md
+
+# pnpm workspace: pnpm-lock.yaml is the ONLY lockfile. A root package-lock.json
+# or yarn.lock makes EAS Build (and anyone else) detect the wrong package
+# manager — `npm ci` then installs ~28 root packages and none of the workspace,
+# and the Android build dies at "The expo package was not found". Happened on
+# 22 Aug 2026 after an `npm install` for the EC2 SSM scripts. Sub-projects that
+# genuinely use npm (towing-aws-infra/) keep their own lockfile; only the root
+# is guarded.
+/package-lock.json
+/yarn.lock
