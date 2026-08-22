@@ -102,13 +102,18 @@ export const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpIn
         accessibilityLabel="One-time code"
         // Invisible but full-size over the boxes, so any tap lands on it and
         // the keyboard's accessory bar attaches to a real focused input.
+        //
+        // opacity 0 exactly, not 'nearly 0': at 0.02 Android still painted the
+        // typed digits as a faint ghost behind the first box (seen on-device,
+        // 22 Aug 2026). An opacity-0 view remains focusable and tappable in RN,
+        // so nothing is lost by going all the way.
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          opacity: 0.02,
+          opacity: 0,
           color: 'transparent',
         }}
       />
