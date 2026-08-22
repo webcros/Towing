@@ -25,6 +25,7 @@
     "@towing/theme": "workspace:*",
     "@towing/ui": "workspace:*",
     "expo": "~57.0.11",
+    "expo-build-properties": "~57.0.13",
     "expo-constants": "~57.0.9",
     "expo-crypto": "~57.0.1",
     "expo-dev-client": "~57.0.10",

@@ -113,6 +113,25 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-font',
+    /**
+     * STAGING-ONLY cleartext HTTP, and gated so it cannot reach production.
+     *
+     * Release-type Android builds (the `preview` and `production` EAS
+     * profiles) refuse plain http:// by default — `usesCleartextTraffic` is
+     * false from API 28. The staging backend is `http://13.234.253.186:4000`
+     * with no domain and no TLS yet (SETUP-CHECKLIST items 5, 6), so a
+     * preview APK could not reach it at all without this.
+     *
+     * The flag is set ONLY in the EAS `preview` environment. The `production`
+     * environment never sets it, so a production build keeps the platform
+     * default and will simply fail to connect until the API is behind TLS —
+     * which is the correct failure: it makes a missing certificate impossible
+     * to ship around. Development builds are debug-signed and permit cleartext
+     * regardless, which is why this was never needed before.
+     */
+    ...(process.env.EXPO_PUBLIC_ALLOW_CLEARTEXT_HTTP === 'true'
+      ? [['expo-build-properties', { android: { usesCleartextTraffic: true } }] as [string, object]]
+      : []),
     [
       'expo-splash-screen',
       {

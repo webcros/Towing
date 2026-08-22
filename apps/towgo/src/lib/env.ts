@@ -67,6 +67,19 @@ export const env = {
    */
   googleSignInEnabled: (process.env.EXPO_PUBLIC_GOOGLE_SIGN_IN_ENABLED ?? 'false') === 'true',
 
+  /**
+   * Lets a RELEASE build auto-fill the login code from the backend's dev OTP
+   * echo (`LoginScreen.echoDevOtp`). In `__DEV__` the echo is always attempted;
+   * this flag extends it to the `preview` EAS environment only, because a
+   * standalone staging APK has no other way to log in — no SMS provider
+   * exists (SETUP-CHECKLIST item 2) and `__DEV__` is false in a release bundle.
+   *
+   * Never set for `production`. Even if it were, the server side is the real
+   * gate: the echo route 404s unless `AUTH_DEV_OTP_ECHO`, and the backend
+   * refuses to boot production with that set.
+   */
+  devOtpEcho: (process.env.EXPO_PUBLIC_DEV_OTP_ECHO ?? 'false') === 'true',
+
   /** Empty by default — analytics falls back to the log adapter until a real GA4 property exists. */
   ga4MeasurementId: process.env.EXPO_PUBLIC_GA4_MEASUREMENT_ID ?? '',
   ga4ApiSecret: process.env.EXPO_PUBLIC_GA4_API_SECRET ?? '',

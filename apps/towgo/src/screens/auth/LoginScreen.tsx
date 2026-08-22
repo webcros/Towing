@@ -109,7 +109,8 @@ export function LoginScreen() {
    * `AUTH_DEV_OTP_ECHO`, the adapter only records under the same flag, and
    * production refuses to boot with it set). Client-side this is additionally
    * dead code outside `__DEV__` and does nothing in mock mode, where the fixed
-   * 123456 already works.
+   * 123456 already works. `env.devOtpEcho` (EXPO_PUBLIC_DEV_OTP_ECHO) extends it
+   * to the preview EAS environment, where __DEV__ is false.
    *
    * The 600ms delay lets the pane transition land so the boxes visibly fill;
    * filling all six auto-submits, so a dev login is: number → Send OTP → done.
@@ -118,7 +119,8 @@ export function LoginScreen() {
    */
   const echoDevOtp = useCallback(
     (forChallenge: string) => {
-      if (!__DEV__ || env.useMocks) return;
+      // __DEV__ always; a release build only when its EAS environment opts in.
+      if (!(__DEV__ || env.devOtpEcho) || env.useMocks) return;
       setTimeout(() => {
         fetch(`${env.apiBaseUrl}/v1/auth/dev/otp?challengeId=${forChallenge}`)
           .then((r) => (r.ok ? r.json() : null))
